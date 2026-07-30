@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "605907459602",
+    "project_id": "commctv-f2b45",
+    "storage_bucket": "commctv-f2b45.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:605907459602:android:91b20ffa6fa757c17e42cb",
+        "android_client_info": {
+          "package_name": "com.example.cctv_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAO-iIxJvS_rVmR6TsOmCbIGC42usT5qm8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super admin'];
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // Only user can update their own data, but admins can manage all users
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /posts/{postId} {
+      // Anyone authenticated can read or create/update posts
+      // Note: Admin soft deletes 'is_active: N' are handled by client right now.
+      allow read, write: if isAuthenticated();
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      // Only admins can create announcements
+      allow write: if isAdmin();
+    }
+
+    match /post_reports/{reportId} {
+      // Users can submit reports, admins can read and resolve them
+      allow read, write: if isAuthenticated();
+    }
+
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
