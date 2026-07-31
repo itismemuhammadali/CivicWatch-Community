@@ -31,7 +31,9 @@ Future<void> main() async {
       debugPrint('Firebase initialization failed: $e');
     }
   }
-  await PostLinkManager.instance.initialize();
+  PostLinkManager.instance.initialize().catchError((e) {
+    debugPrint('PostLinkManager init error: $e');
+  });
   runApp(const MyApp());
 }
 

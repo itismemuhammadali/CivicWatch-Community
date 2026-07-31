@@ -31,38 +31,43 @@ class SessionGate extends StatelessWidget {
   }
 
   Future<Widget> _resolveHome() async {
-    final storage = const AuthStorage();
-    final hasSession = await storage.hasSession();
-    if (!hasSession) {
-      await AppWebSocketService.instance.disconnect();
+    try {
+      final storage = const AuthStorage();
+      final hasSession = await storage.hasSession();
+      if (!hasSession) {
+        await AppWebSocketService.instance.disconnect();
+        return const SplashPage();
+      }
+
+      await storage.hydrateCache();
+      final userId = await storage.readUserId();
+      if (userId != null) {
+        await const AppSettingsStorage().readDrawerCountry(userId);
+      }
+      await AppWebSocketService.instance.connect();
+
+      final dashboardType = await storage.readDashboardType();
+      final roleDescription = await storage.readRoleDescription();
+      final roleId = await storage.readRoleId();
+
+      final resolvedType =
+          dashboardType ??
+          _dashboardTypeFromRole(
+            roleDescription: roleDescription,
+            roleId: roleId,
+          );
+      final initialIndex = await storage.readLastTabIndex(resolvedType);
+
+      return switch (resolvedType) {
+        DashboardType.superAdmin => AdminBottomNavBar(initialIndex: initialIndex ?? 0),
+        DashboardType.admin => SimpleAdminBottomNavBar(initialIndex: initialIndex ?? 0),
+        DashboardType.ad => AdBottomNavBar(initialIndex: initialIndex ?? 0),
+        DashboardType.user => UserBottomNavBar(initialIndex: initialIndex ?? 0),
+      };
+    } catch (e) {
+      debugPrint('SessionGate resolveHome error: $e');
       return const SplashPage();
     }
-
-    await storage.hydrateCache();
-    final userId = await storage.readUserId();
-    if (userId != null) {
-      await const AppSettingsStorage().readDrawerCountry(userId);
-    }
-    await AppWebSocketService.instance.connect();
-
-    final dashboardType = await storage.readDashboardType();
-    final roleDescription = await storage.readRoleDescription();
-    final roleId = await storage.readRoleId();
-
-    final resolvedType =
-        dashboardType ??
-        _dashboardTypeFromRole(
-          roleDescription: roleDescription,
-          roleId: roleId,
-        );
-    final initialIndex = await storage.readLastTabIndex(resolvedType);
-
-    return switch (resolvedType) {
-      DashboardType.superAdmin => AdminBottomNavBar(initialIndex: initialIndex ?? 0),
-      DashboardType.admin => SimpleAdminBottomNavBar(initialIndex: initialIndex ?? 0),
-      DashboardType.ad => AdBottomNavBar(initialIndex: initialIndex ?? 0),
-      DashboardType.user => UserBottomNavBar(initialIndex: initialIndex ?? 0),
-    };
   }
 
   DashboardType _dashboardTypeFromRole({String? roleDescription, int? roleId}) {

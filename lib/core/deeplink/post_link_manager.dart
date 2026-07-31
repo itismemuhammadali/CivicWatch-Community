@@ -32,8 +32,15 @@ class PostLinkManager {
     _isInitialized = true;
     _appLinks = AppLinks();
 
-    final initialUri = await _appLinks!.getInitialLink();
-    _handleUri(initialUri);
+    try {
+      final initialUri = await _appLinks!.getInitialLink().timeout(
+        const Duration(milliseconds: 500),
+        onTimeout: () => null,
+      );
+      _handleUri(initialUri);
+    } catch (e) {
+      debugPrint('AppLinks initialize error: $e');
+    }
 
     _appLinks!.uriLinkStream.listen(
       _handleUri,
