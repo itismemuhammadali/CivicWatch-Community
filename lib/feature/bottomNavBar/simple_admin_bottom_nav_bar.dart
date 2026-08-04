@@ -16,7 +16,8 @@ class SimpleAdminBottomNavBar extends StatefulWidget {
   const SimpleAdminBottomNavBar({super.key, this.initialIndex = 0});
 
   @override
-  State<SimpleAdminBottomNavBar> createState() => _SimpleAdminBottomNavBarState();
+  State<SimpleAdminBottomNavBar> createState() =>
+      _SimpleAdminBottomNavBarState();
 }
 
 class _SimpleAdminBottomNavBarState extends State<SimpleAdminBottomNavBar> {
@@ -29,11 +30,11 @@ class _SimpleAdminBottomNavBarState extends State<SimpleAdminBottomNavBar> {
   }
 
   List<Widget> get _pages => const [
-        AdminDashboardHomePage(),
-        CommunityFeedback(),
-        AnnouncementPage(),
-        NotificationPage(),
-      ];
+    AdminDashboardHomePage(),
+    CommunityFeedback(),
+    AnnouncementPage(),
+    NotificationPage(),
+  ];
 
   void onItemTapped(int index) {
     if (index == selectedIndex) return;
@@ -53,45 +54,55 @@ class _SimpleAdminBottomNavBarState extends State<SimpleAdminBottomNavBar> {
 
     return Container(
       color: kWhiteColor,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(items.length, (index) {
-          final item = items[index];
-          final isSelected = selectedIndex == index;
-          final label = item['label'] as String;
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(items.length, (index) {
+              final item = items[index];
+              final isSelected = selectedIndex == index;
+              final label = item['label'] as String;
 
-          return GestureDetector(
-            onTap: () => onItemTapped(index),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? kPrimaryColor : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset(
-                    item['icon'] as String,
-                    colorFilter: colorFilter(color: isSelected ? kWhiteColor : kDarkGreyColor),
-                    width: 20,
-                    height: 20,
+              return GestureDetector(
+                onTap: () => onItemTapped(index),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
                   ),
-                  const SizedBox(width: 6),
-                  Text(
-                    label,
-                    style: context.normal.copyWith(
-                      color: isSelected ? kWhiteColor : kDarkGreyColor,
-                      fontSize: 12,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    ),
+                  decoration: BoxDecoration(
+                    color: isSelected ? kPrimaryColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                ],
-              ),
-            ),
-          );
-        }),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SvgPicture.asset(
+                        item['icon'] as String,
+                        colorFilter: colorFilter(
+                          color: isSelected ? kWhiteColor : kDarkGreyColor,
+                        ),
+                        width: 24,
+                        height: 24,
+                      ),
+                      if (isSelected) const SizedBox(width: 6),
+                      if (isSelected)
+                        Text(
+                          label,
+                          style: context.normal.copyWith(
+                            color: isSelected ? kWhiteColor : kDarkGreyColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }
@@ -100,10 +111,7 @@ class _SimpleAdminBottomNavBarState extends State<SimpleAdminBottomNavBar> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const CustomDrawer(),
-      body: IndexedStack(
-        index: selectedIndex,
-        children: _pages,
-      ),
+      body: IndexedStack(index: selectedIndex, children: _pages),
       bottomNavigationBar: _buildCustomBottomNav(),
     );
   }

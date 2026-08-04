@@ -104,10 +104,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
           fileName: _pickedImageFile!.name,
         );
         newAvatarUrl = uploaded.metaUrl;
-        await FirebaseFirestoreService().updateUserProfile(uid.toString(), {'profileImageUrl': newAvatarUrl});
+        await FirestoreDataService().updateUserProfile(uid.toString(), {
+          'profileImageUrl': newAvatarUrl,
+          'profile_image_url': newAvatarUrl,
+          'avatar_url': newAvatarUrl,
+        });
       }
 
       final currentAvatar = AuthStorage.cachedProfileImageUrl;
+      final roleDescription = await storage.readRoleDescription();
       await storage.saveAuth(
         accessToken: accessToken ?? '',
         userId: uid ?? 0,
@@ -115,7 +120,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
         lastName: lastNameController.text.trim(),
         email: emailController.text.trim(),
         profileImageUrl: newAvatarUrl ?? currentAvatar,
-        role: AuthStorage.cachedRole ?? 'user',
+        roleDescription: roleDescription ?? 'user',
       );
 
       if (mounted) {
@@ -357,6 +362,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         value: selectedMonth,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(
@@ -370,7 +376,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                         ),
                         items: months.map((month) {
-                          return DropdownMenuItem(value: month, child: Text(month));
+                          return DropdownMenuItem(value: month, child: Text(month, overflow: TextOverflow.ellipsis));
                         }).toList(),
                         onChanged: (value) {
                           setState(() => selectedMonth = value);
@@ -380,6 +386,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     Space.horizontal(8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         value: selectedDay,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(
@@ -393,7 +400,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                         ),
                         items: days.map((day) {
-                          return DropdownMenuItem(value: day, child: Text(day));
+                          return DropdownMenuItem(value: day, child: Text(day, overflow: TextOverflow.ellipsis));
                         }).toList(),
                         onChanged: (value) {
                           setState(() => selectedDay = value);
@@ -403,6 +410,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                     Space.horizontal(8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
+                        isExpanded: true,
                         value: selectedYear,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(
@@ -416,7 +424,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                           contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
                         ),
                         items: years.map((year) {
-                          return DropdownMenuItem(value: year, child: Text(year));
+                          return DropdownMenuItem(value: year, child: Text(year, overflow: TextOverflow.ellipsis));
                         }).toList(),
                         onChanged: (value) {
                           setState(() => selectedYear = value);
@@ -467,6 +475,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 ),
                 Space.vertical(6),
                 DropdownButtonFormField<String>(
+                  isExpanded: true,
                   value: selectedGender,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(

@@ -35,6 +35,7 @@ class _AdsPageState extends State<AdsPage> {
     _AdsStatusTab(label: 'Active Ads', status: 'active'),
     _AdsStatusTab(label: 'Pending Ads', status: 'pending'),
     _AdsStatusTab(label: 'Scheduled Ads', status: 'scheduled'),
+    _AdsStatusTab(label: 'Paused Ads', status: 'paused'),
     _AdsStatusTab(label: 'Cancelled', status: 'cancelled'),
   ];
 

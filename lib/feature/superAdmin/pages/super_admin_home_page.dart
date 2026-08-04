@@ -1,5 +1,6 @@
 import 'package:cctv_app/core/components/custom_textfield.dart';
 import 'package:cctv_app/core/components/notification_icon_button.dart';
+import 'package:cctv_app/core/components/super_admin_top_header.dart';
 import 'package:cctv_app/core/components/space.dart';
 import 'package:cctv_app/core/components/app_alert.dart';
 import 'package:cctv_app/core/extensions/context.dart';
@@ -92,18 +93,43 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
       _chartError = null;
     });
 
-    // Mock chart data
-    _chartPoints = [
-      _ChartPoint(label: '2021', value: 1330),
-      _ChartPoint(label: '2022', value: 4370),
-      _ChartPoint(label: '2023', value: 8800),
-      _ChartPoint(label: '2024', value: 16330),
-      _ChartPoint(label: '2025', value: 25660),
-    ];
+    try {
+      final accessToken = await const AuthStorage().readAccessToken();
+      if (accessToken == null || accessToken.trim().isEmpty) {
+        throw const ApiException('Session token not found');
+      }
 
-    setState(() {
-      _isLoadingChart = false;
-    });
+      final dashboardService = DashboardService();
+      final range = _dateRangeForTab(selectedTab);
+      final entries = await dashboardService.getUserAnalysis(
+        accessToken: accessToken,
+        dateFrom: range.start,
+        dateTo: range.end,
+      );
+
+      final points = _buildChartPoints(entries, range, selectedTab);
+
+      if (!mounted) return;
+      setState(() {
+        _chartPoints = points;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _chartError = e.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _chartError = 'Failed to load chart data';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoadingChart = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadRecentAdmins() async {
@@ -119,9 +145,11 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
         accessToken: token,
         limit: 10,
       );
-      
+
       if (currentUserId != null) {
-        admins = admins.where((admin) => admin.userId != currentUserId).toList();
+        admins = admins
+            .where((admin) => admin.userId != currentUserId)
+            .toList();
       }
 
       if (!mounted) return;
@@ -290,7 +318,10 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
       day = day.add(const Duration(days: 1))
     ) {
       points.add(
-        _ChartPoint(label: _formatDayLabel(day), value: (totals[day] ?? 0).toDouble()),
+        _ChartPoint(
+          label: _formatDayLabel(day),
+          value: (totals[day] ?? 0).toDouble(),
+        ),
       );
     }
     return points;
@@ -308,7 +339,11 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
     final totals = <DateTime, int>{};
     for (final entry in entries) {
       final start = weekStart(entry.date);
-      totals.update(start, (value) => value + entry.count, ifAbsent: () => entry.count);
+      totals.update(
+        start,
+        (value) => value + entry.count,
+        ifAbsent: () => entry.count,
+      );
     }
 
     final points = <_ChartPoint>[];
@@ -317,7 +352,10 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
 
     while (!cursor.isAfter(last)) {
       points.add(
-        _ChartPoint(label: _formatDayLabel(cursor), value: (totals[cursor] ?? 0).toDouble()),
+        _ChartPoint(
+          label: _formatDayLabel(cursor),
+          value: (totals[cursor] ?? 0).toDouble(),
+        ),
       );
       cursor = cursor.add(const Duration(days: 7));
     }
@@ -333,7 +371,11 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
     final totals = <DateTime, int>{};
     for (final entry in entries) {
       final start = monthStart(entry.date);
-      totals.update(start, (value) => value + entry.count, ifAbsent: () => entry.count);
+      totals.update(
+        start,
+        (value) => value + entry.count,
+        ifAbsent: () => entry.count,
+      );
     }
 
     final points = <_ChartPoint>[];
@@ -342,7 +384,10 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
 
     while (!cursor.isAfter(last)) {
       points.add(
-        _ChartPoint(label: _formatMonthLabel(cursor), value: (totals[cursor] ?? 0).toDouble()),
+        _ChartPoint(
+          label: _formatMonthLabel(cursor),
+          value: (totals[cursor] ?? 0).toDouble(),
+        ),
       );
       cursor = DateTime(cursor.year, cursor.month + 1, 1);
     }
@@ -358,7 +403,11 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
     final totals = <DateTime, int>{};
     for (final entry in entries) {
       final start = yearStart(entry.date);
-      totals.update(start, (value) => value + entry.count, ifAbsent: () => entry.count);
+      totals.update(
+        start,
+        (value) => value + entry.count,
+        ifAbsent: () => entry.count,
+      );
     }
 
     final points = <_ChartPoint>[];
@@ -366,14 +415,18 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
     final last = yearStart(range.end);
     while (!cursor.isAfter(last)) {
       points.add(
-        _ChartPoint(label: cursor.year.toString(), value: (totals[cursor] ?? 0).toDouble()),
+        _ChartPoint(
+          label: cursor.year.toString(),
+          value: (totals[cursor] ?? 0).toDouble(),
+        ),
       );
       cursor = DateTime(cursor.year + 1, 1, 1);
     }
     return points;
   }
 
-  String _formatDayLabel(DateTime date) => '${_two(date.month)}/${_two(date.day)}';
+  String _formatDayLabel(DateTime date) =>
+      '${_two(date.month)}/${_two(date.day)}';
   String _formatMonthLabel(DateTime date) => _two(date.month);
   String _two(int value) => value.toString().padLeft(2, '0');
 
@@ -516,10 +569,8 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
         gridData: FlGridData(
           show: true,
           horizontalInterval: interval,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: kGreyColor.withValues(alpha: 0.7),
-            strokeWidth: 1,
-          ),
+          getDrawingHorizontalLine: (value) =>
+              FlLine(color: kGreyColor.withValues(alpha: 0.7), strokeWidth: 1),
           drawVerticalLine: false,
         ),
         borderData: FlBorderData(show: false),
@@ -548,7 +599,9 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
                 if (index < 0 || index >= _chartPoints.length) {
                   return const SizedBox.shrink();
                 }
-                final skip = _chartPoints.length > 10 ? (_chartPoints.length / 6).ceil() : 1;
+                final skip = _chartPoints.length > 10
+                    ? (_chartPoints.length / 6).ceil()
+                    : 1;
                 if (index % skip != 0 && index != _chartPoints.length - 1) {
                   return const SizedBox.shrink();
                 }
@@ -587,155 +640,118 @@ class _SuperAdminHomePageState extends State<SuperAdminHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      bottom: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Space.vertical(6),
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const ProfilePage()),
-                      );
-                    },
-                    child: const CircleAvatar(
-                      radius: 24,
-                      backgroundColor: kTextfieldBlueColor,
-                      backgroundImage: AssetImage('assets/images/super_admin_avatar.png'),
-                    ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SuperAdminTopHeader(),
+            Space.vertical(18),
+            Row(
+              children: [
+                Expanded(
+                  child: _SummaryCard(
+                    title: 'Total Register',
+                    value: _formatSummaryValue(_latestRegisterCount),
+                    icon: Icons.supervised_user_circle_outlined,
+                    chart: const _MiniAreaChart(),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: CustomTextField(
-                      topPadding: 10,
-                      bottomPadding: 10,
-                      readOnly: true,
-                      hintText: "Search",
-                      prefix: Icon(Icons.search, color: kDarkGreyColor),
-                      hintTextColor: kDarkGreyColor,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  NotificationIconButton(
-                    decoration: BoxDecoration(
-                      color: kWhiteColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: kGreyColor),
-                    ),
-                    padding: const EdgeInsets.all(10),
-                  ),
-                ],
-              ),
-              Space.vertical(18),
-              Row(
-                children: [
-                  Expanded(
-                    child: _SummaryCard(
-                      title: 'Total Register',
-                      value: _formatSummaryValue(_latestRegisterCount),
-                      icon: Icons.supervised_user_circle_outlined,
-                      chart: const _MiniAreaChart(),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _SummaryCard(
-                      title: 'Active User',
-                      value: _formatSummaryValue(_activeUserCount),
-                      icon: Icons.auto_graph_rounded,
-                      chart: const _MiniBarGlyph(),
-                    ),
-                  ),
-                ],
-              ),
-              Space.vertical(18),
-              Text('User Growth', style: context.bold.copyWith(fontSize: 24)),
-              Space.vertical(12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: kWhiteColor,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: kGreyColor),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Row(
-                          children: List.generate(_tabs.length, (index) {
-                            final isSelected = selectedTab == index;
-                            return Padding(
-                              padding: EdgeInsets.only(
-                                right: index == _tabs.length - 1 ? 0 : 14,
-                              ),
-                              child: InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    selectedTab = index;
-                                  });
-                                  _loadChart();
-                                },
-                                borderRadius: BorderRadius.circular(5),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 180),
-                                  width: 78,
-                                  height: 30,
-                                  alignment: Alignment.center,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                  ),
-                                  decoration: BoxDecoration(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _SummaryCard(
+                    title: 'Active User',
+                    value: _formatSummaryValue(_activeUserCount),
+                    icon: Icons.auto_graph_rounded,
+                    chart: const _MiniBarGlyph(),
+                  ),
+                ),
+              ],
+            ),
+            Space.vertical(18),
+            Text('User Growth', style: context.bold.copyWith(fontSize: 24)),
+            Space.vertical(12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: kWhiteColor,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: kGreyColor),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        children: List.generate(_tabs.length, (index) {
+                          final isSelected = selectedTab == index;
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              right: index == _tabs.length - 1 ? 0 : 14,
+                            ),
+                            child: InkWell(
+                              onTap: () {
+                                setState(() {
+                                  selectedTab = index;
+                                });
+                                _loadChart();
+                              },
+                              borderRadius: BorderRadius.circular(5),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 180),
+                                width: 78,
+                                height: 30,
+                                alignment: Alignment.center,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? kPrimaryColor
+                                      : kWhiteColor,
+                                  borderRadius: BorderRadius.circular(5),
+                                  border: Border.all(
                                     color: isSelected
                                         ? kPrimaryColor
-                                        : kWhiteColor,
-                                    borderRadius: BorderRadius.circular(5),
-                                    border: Border.all(
-                                      color: isSelected
-                                          ? kPrimaryColor
-                                          : kGreyColor,
-                                    ),
+                                        : kGreyColor,
                                   ),
-                                  child: Text(
-                                    _tabs[index],
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: context.normal.copyWith(
-                                      fontSize: 12,
-                                      color: isSelected
-                                          ? kWhiteColor
-                                          : kBlackColor,
-                                    ),
+                                ),
+                                child: Text(
+                                  _tabs[index],
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: context.normal.copyWith(
+                                    fontSize: 12,
+                                    color: isSelected
+                                        ? kWhiteColor
+                                        : kBlackColor,
                                   ),
                                 ),
                               ),
-                            );
-                          }),
-                        ),
+                            ),
+                          );
+                        }),
                       ),
                     ),
-                    Space.vertical(16),
-                    SizedBox(height: 220, child: _buildChartBody()),
-                  ],
-                ),
+                  ),
+                  Space.vertical(16),
+                  SizedBox(height: 220, child: _buildChartBody()),
+                ],
               ),
-              Space.vertical(18),
-              Text('Recent add admin', style: context.bold.copyWith(fontSize: 24)),
-              Space.vertical(10),
-              _buildRecentAdminsSection(),
-            ],
-          ),
+            ),
+            Space.vertical(18),
+            Text(
+              'Recent add admin',
+              style: context.bold.copyWith(fontSize: 24),
+            ),
+            Space.vertical(10),
+            _buildRecentAdminsSection(),
+          ],
         ),
       ),
     );
@@ -859,7 +875,9 @@ class _MiniBarGlyph extends StatelessWidget {
               child: Container(
                 height: 18 + (index % 4) * 8.0 + (index * 2),
                 decoration: BoxDecoration(
-                  color: index.isEven ? kPrimaryColor : kPrimaryColor.withValues(alpha: 0.45),
+                  color: index.isEven
+                      ? kPrimaryColor
+                      : kPrimaryColor.withValues(alpha: 0.45),
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
@@ -949,7 +967,10 @@ class _RecentAdminCard extends StatelessWidget {
                   fullName.isEmpty ? admin.email : fullName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -977,14 +998,8 @@ class _RecentAdminCard extends StatelessWidget {
                 value: 'quick',
                 child: Text('Quick Actions'),
               ),
-              PopupMenuItem<String>(
-                value: 'remove',
-                child: Text('Remove'),
-              ),
-              PopupMenuItem<String>(
-                value: 'copy',
-                child: Text('Copy Link'),
-              ),
+              PopupMenuItem<String>(value: 'remove', child: Text('Remove')),
+              PopupMenuItem<String>(value: 'copy', child: Text('Copy Link')),
             ],
           ),
         ],

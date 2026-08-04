@@ -107,7 +107,10 @@ class _ProfilePageState extends State<ProfilePage> {
       ].join(' ');
 
       final currentDashboardType = await storage.readDashboardType();
-      final userId = await storage.readUserId() ?? uid.hashCode;
+      final profileUserId = profileMap['user_id'] ?? profileMap['userId'];
+      final userId = profileUserId is int
+          ? profileUserId
+          : (int.tryParse('$profileUserId') ?? (await storage.readUserId()) ?? uid.hashCode);
       final roleId = await storage.readRoleId() ?? 1;
       final roleDescription = profileMap['role'] ?? 'user';
       
@@ -204,7 +207,7 @@ class _ProfilePageState extends State<ProfilePage> {
               onTap: () async {
                 final userId = await const AuthStorage().readUserId();
                 if (userId != null && mounted) {
-                  Navigator.push(
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => UserFollowersFollowingPage(
@@ -213,6 +216,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   );
+                  _refreshUserProfile();
                 }
               },
               child: Column(
@@ -233,7 +237,7 @@ class _ProfilePageState extends State<ProfilePage> {
               onTap: () async {
                 final userId = await const AuthStorage().readUserId();
                 if (userId != null && mounted) {
-                  Navigator.push(
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => UserFollowersFollowingPage(
@@ -242,6 +246,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   );
+                  _refreshUserProfile();
                 }
               },
               child: Column(

@@ -15,6 +15,7 @@ class CommentContainer extends StatelessWidget {
   final VoidCallback? onLikeTap;
   final VoidCallback? onMenuTap;
   final bool isReply;
+  final bool isLiked;
 
   const CommentContainer({
     super.key,
@@ -29,6 +30,7 @@ class CommentContainer extends StatelessWidget {
     this.onLikeTap,
     this.onMenuTap,
     this.isReply = false,
+    this.isLiked = false,
   });
 
   const CommentContainer.dynamic({
@@ -44,6 +46,7 @@ class CommentContainer extends StatelessWidget {
     this.onLikeTap,
     this.onMenuTap,
     this.isReply = false,
+    this.isLiked = false,
   });
 
   @override
@@ -73,9 +76,10 @@ class CommentContainer extends StatelessWidget {
               backgroundColor: kTextfieldBlueColor,
               backgroundImage: hasAvatar
                   ? (normalizedAvatarUrl.startsWith('assets/')
-                      ? AssetImage(normalizedAvatarUrl)
+                      ? AssetImage(normalizedAvatarUrl) as ImageProvider
                       : NetworkImage(normalizedAvatarUrl))
                   : null,
+              onBackgroundImageError: hasAvatar ? (_, __) {} : null,
               child: hasAvatar
                   ? null
                   : Text(
@@ -208,9 +212,9 @@ class CommentContainer extends StatelessWidget {
             GestureDetector(
               onTap: onLikeTap,
               child: Icon(
-                Icons.thumb_up_outlined,
+                isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
                 size: 18,
-                color: kDarkGreyColor,
+                color: isLiked ? kPrimaryColor : kDarkGreyColor,
               ),
             ),
           ],

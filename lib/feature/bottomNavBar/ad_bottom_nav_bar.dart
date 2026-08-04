@@ -52,49 +52,62 @@ class _AdBottomNavBarState extends State<AdBottomNavBar> {
 
     return Container(
       color: kWhiteColor,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(items.length, (index) {
-          final item = items[index];
-          final isSelected = selectedIndex == index;
-          final iconColor = isSelected ? kPrimaryColor : kDarkGreyColor;
-          final textColor = isSelected ? kPrimaryColor : kDarkGreyColor;
-          final label = item['label'] as String;
-          
-          // Truncate long words to 3-4 chars + "."
-          final truncatedLabel = label.length > 4 ? '${label.substring(0, 4)}.' : label;
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(items.length, (index) {
+              final item = items[index];
+              final isSelected = selectedIndex == index;
+              final iconColor = isSelected ? kPrimaryColor : kDarkGreyColor;
+              final textColor = isSelected ? kPrimaryColor : kDarkGreyColor;
+              final label = item['label'] as String;
 
-          return GestureDetector(
-            onTap: () => onItemTapped(index),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset(
-                    item['icon'] as String,
-                    colorFilter: colorFilter(color: iconColor),
-                    width: 20,
-                    height: 20,
+              // Truncate long words to 3-4 chars + "."
+              final truncatedLabel = label.length > 4
+                  ? '${label.substring(0, 4)}.'
+                  : label;
+
+              return GestureDetector(
+                onTap: () => onItemTapped(index),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
                   ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      truncatedLabel,
-                      style: context.normal.copyWith(
-                        color: textColor,
-                        fontSize: 11,
+                  decoration: BoxDecoration(
+                    color: isSelected ? kPrimaryColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SvgPicture.asset(
+                        item['icon'] as String,
+                        colorFilter: colorFilter(
+                          color: isSelected ? kWhiteColor : kDarkGreyColor,
+                        ),
+                        width: 24,
+                        height: 24,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      if (isSelected) const SizedBox(width: 6),
+                      if (isSelected)
+                        Text(
+                          truncatedLabel,
+                          style: context.normal.copyWith(
+                            color: isSelected ? kWhiteColor : kDarkGreyColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          );
-        }),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }

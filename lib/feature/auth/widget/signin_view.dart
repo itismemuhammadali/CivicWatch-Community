@@ -127,25 +127,48 @@ class _SigninViewState extends State<SigninView> {
         );
       }
 
-      final displayName = user.displayName ?? '';
-      final nameParts = displayName.split(' ');
-      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
-      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
-      
+      // Read the full user document so we get the real user_id integer, name, and avatar
+      int firestoreUserId = user.uid.hashCode; // fallback
+      String firstName = '';
+      String lastName = '';
       String? profileImageUrl;
       try {
         final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
         if (userDoc.exists) {
-          final data = userDoc.data();
-          profileImageUrl = data?['profileImageUrl'] ?? data?['profile_image_url'];
+          final data = userDoc.data()!;
+          profileImageUrl = data['profileImageUrl'] ?? data['profile_image_url'];
+          // Prefer the integer user_id stored in Firestore
+          final rawId = data['user_id'] ?? data['userId'];
+          firestoreUserId = rawId is int
+              ? rawId
+              : (int.tryParse('$rawId') ?? user.uid.hashCode);
+          // Prefer Firestore first_name/lastName over displayName
+          firstName = (data['first_name'] ?? data['firstName'] ?? '').toString().trim();
+          lastName  = (data['last_name']  ?? data['lastName']  ?? '').toString().trim();
+          if (firstName.isEmpty) {
+            // Fall back to Firebase Auth displayName
+            final displayName = user.displayName ?? '';
+            final nameParts = displayName.split(' ');
+            firstName = nameParts.isNotEmpty ? nameParts.first : '';
+            lastName  = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+          }
+        } else {
+          final displayName = user.displayName ?? '';
+          final nameParts = displayName.split(' ');
+          firstName = nameParts.isNotEmpty ? nameParts.first : '';
+          lastName  = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
         }
       } catch (e) {
         debugPrint('Failed to fetch user profile on login: $e');
+        final displayName = user.displayName ?? '';
+        final nameParts = displayName.split(' ');
+        firstName = nameParts.isNotEmpty ? nameParts.first : '';
+        lastName  = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
       }
 
       await AuthStorage().saveAuth(
         accessToken: token,
-        userId: user.uid.hashCode,
+        userId: firestoreUserId,
         roleId: _roleIdFromRoleString(role),
         roleDescription: role,
         firstName: firstName,

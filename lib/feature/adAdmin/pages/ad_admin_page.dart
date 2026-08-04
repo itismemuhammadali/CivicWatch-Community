@@ -1,4 +1,4 @@
-import 'package:cctv_app/core/components/ad_top_header.dart';
+import 'package:cctv_app/core/components/super_admin_top_header.dart';
 import 'package:cctv_app/core/components/app_alert.dart';
 import 'package:cctv_app/core/components/primary_button.dart';
 import 'package:cctv_app/core/components/space.dart';
@@ -49,10 +49,14 @@ class _AdAdminPageState extends State<AdAdminPage> {
     try {
       final token = await const AuthStorage().readAccessToken() ?? '';
       final currentUserId = await const AuthStorage().readUserId();
-      var admins = await const UserService().getAllAdminsWithProfiles(accessToken: token);
+      var admins = await const UserService().getAllAdminsWithProfiles(
+        accessToken: token,
+      );
 
       if (currentUserId != null) {
-        admins = admins.where((admin) => admin.userId != currentUserId).toList();
+        admins = admins
+            .where((admin) => admin.userId != currentUserId)
+            .toList();
       }
 
       if (!mounted) return;
@@ -90,7 +94,10 @@ class _AdAdminPageState extends State<AdAdminPage> {
     );
   }
 
-  Widget _buildAdminRow(List<UserProfile> admins, {bool showOnlineStatus = false}) {
+  Widget _buildAdminRow(
+    List<UserProfile> admins, {
+    bool showOnlineStatus = false,
+  }) {
     if (admins.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 12),
@@ -106,7 +113,9 @@ class _AdAdminPageState extends State<AdAdminPage> {
       child: Row(
         children: List.generate(admins.length, (index) {
           return Padding(
-            padding: EdgeInsets.only(right: index == admins.length - 1 ? 0 : 12),
+            padding: EdgeInsets.only(
+              right: index == admins.length - 1 ? 0 : 12,
+            ),
             child: AdminContainerWidget(
               admin: admins[index],
               showOnlineStatus: showOnlineStatus,
@@ -149,7 +158,7 @@ class _AdAdminPageState extends State<AdAdminPage> {
       child: SingleChildScrollView(
         child: Column(
           children: [
-            AdTopHeader(),
+            const SuperAdminTopHeader(),
             Space.vertical(16),
             Align(
               alignment: Alignment.centerRight,
@@ -239,11 +248,7 @@ class AdminListTile extends StatelessWidget {
   final UserProfile admin;
   final VoidCallback? onAdminDeleted;
 
-  const AdminListTile({
-    super.key,
-    required this.admin,
-    this.onAdminDeleted,
-  });
+  const AdminListTile({super.key, required this.admin, this.onAdminDeleted});
 
   String get _displayName {
     final fullName = '${admin.firstName} ${admin.lastName}'.trim();
@@ -365,7 +370,9 @@ class AdminListTile extends StatelessWidget {
                 if (value == 'email') {
                   AppAlert.showSuccess(
                     context,
-                    admin.email.trim().isEmpty ? 'No email available' : admin.email,
+                    admin.email.trim().isEmpty
+                        ? 'No email available'
+                        : admin.email,
                   );
                 }
               },

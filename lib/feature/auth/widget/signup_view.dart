@@ -108,9 +108,21 @@ class _SignupViewState extends State<SignupView> {
         } catch (_) {}
       }
 
+      // Read the Firestore user_id that firebase_service.dart wrote (millisecondsSinceEpoch)
+      int firestoreUserId = user.uid.hashCode; // safe fallback
+      try {
+        final userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userDoc.exists) {
+          final rawId = userDoc.data()?['user_id'] ?? userDoc.data()?['userId'];
+          firestoreUserId = rawId is int
+              ? rawId
+              : (int.tryParse('$rawId') ?? user.uid.hashCode);
+        }
+      } catch (_) {}
+
       await const AuthStorage().saveAuth(
         accessToken: token,
-        userId: user.uid.hashCode,
+        userId: firestoreUserId,
         roleId: 1,
         roleDescription: 'user',
         firstName: firstName,

@@ -34,7 +34,11 @@ class _UserBottomNavBarState extends State<UserBottomNavBar> {
 
   List<Widget> _buildPages() {
     return [
-      HomePage(key: ValueKey('home-$_homeRefreshKey'), isAdmin: false, onViewAllPending: () => onItemTapped(2)),
+      HomePage(
+        key: ValueKey('home-$_homeRefreshKey'),
+        isAdmin: false,
+        onViewAllPending: () => onItemTapped(2),
+      ),
       CreateCasePage(onCaseCreated: _returnToHomeAfterCaseCreated),
       PendingPage(),
       ProfilePage(),
@@ -65,9 +69,11 @@ class _UserBottomNavBarState extends State<UserBottomNavBar> {
   ) {
     final bool isSelected = selectedIndex == index;
     final color = isSelected ? kPrimaryColor : kDarkGreyColor;
-    
+
     // Truncate long words to 3-4 chars + "."
-    final truncatedLabel = label.length > 4 ? '${label.substring(0, 4)}.' : label;
+    final truncatedLabel = label.length > 4
+        ? '${label.substring(0, 4)}.'
+        : label;
 
     return Expanded(
       child: InkWell(
@@ -92,8 +98,7 @@ class _UserBottomNavBarState extends State<UserBottomNavBar> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 11,
-                  fontWeight:
-                      isSelected ? FontWeight.w600 : FontWeight.w400,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   color: color,
                 ),
               ),
@@ -137,9 +142,24 @@ class _UserBottomNavBarState extends State<UserBottomNavBar> {
                     child: Row(
                       children: [
                         _buildNavItem(context, 0, Assets.svgHomeIcon, 'Home'),
-                        _buildNavItem(context, 1, Assets.svgCreateIcon, 'Create'),
-                        _buildNavItem(context, 2, Assets.svgPendingIcon, 'Pending'),
-                        _buildNavItem(context, 3, Assets.svgProfileIcon, 'Profile'),
+                        _buildNavItem(
+                          context,
+                          1,
+                          Assets.svgCreateIcon,
+                          'Create',
+                        ),
+                        _buildNavItem(
+                          context,
+                          2,
+                          Assets.svgPendingIcon,
+                          'Pending',
+                        ),
+                        _buildNavItem(
+                          context,
+                          3,
+                          Assets.svgProfileIcon,
+                          'Profile',
+                        ),
                       ],
                     ),
                   ),

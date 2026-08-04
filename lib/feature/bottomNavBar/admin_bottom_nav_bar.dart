@@ -50,7 +50,11 @@ class _AdminBottomNavBarState extends State<AdminBottomNavBar> {
         .trim()
         .toLowerCase();
     final roleId = await storage.readRoleId();
-    final isSuperAdmin = roleDescription.contains('super') || roleDescription == 'admin' || roleId == 2 || roleId == 3;
+    final isSuperAdmin =
+        roleDescription.contains('super') ||
+        roleDescription == 'admin' ||
+        roleId == 2 ||
+        roleId == 3;
 
     if (!mounted) return;
     setState(() {
@@ -61,50 +65,50 @@ class _AdminBottomNavBarState extends State<AdminBottomNavBar> {
   }
 
   List<Widget> get _pages => [
-        SuperAdminHomePage(),
-        SuperAdminAdsPage(),
-        AdAdminPage(),
-        AnnouncementPage(),
-      ];
+    SuperAdminHomePage(),
+    SuperAdminAdsPage(),
+    AdAdminPage(),
+    AnnouncementPage(),
+  ];
 
   List<BottomNavigationBarItem> _buildItems() => [
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              Assets.svgHomeIcon,
-              colorFilter: colorFilter(
-                color: selectedIndex == 0 ? kPrimaryColor : kDarkGreyColor,
-              ),
-            ),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              Assets.svgAdsIcon,
-              colorFilter: colorFilter(
-                color: selectedIndex == 1 ? kPrimaryColor : kDarkGreyColor,
-              ),
-            ),
-            label: 'Ads',
-          ),
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              Assets.svgAdminIcon,
-              colorFilter: colorFilter(
-                color: selectedIndex == 2 ? kPrimaryColor : kDarkGreyColor,
-              ),
-            ),
-            label: 'Admin',
-          ),
-          BottomNavigationBarItem(
-            icon: SvgPicture.asset(
-              Assets.svgAnnouncementIcon,
-              colorFilter: colorFilter(
-                color: selectedIndex == 3 ? kPrimaryColor : kDarkGreyColor,
-              ),
-            ),
-            label: 'Announce',
-          ),
-        ];
+    BottomNavigationBarItem(
+      icon: SvgPicture.asset(
+        Assets.svgHomeIcon,
+        colorFilter: colorFilter(
+          color: selectedIndex == 0 ? kPrimaryColor : kDarkGreyColor,
+        ),
+      ),
+      label: 'Home',
+    ),
+    BottomNavigationBarItem(
+      icon: SvgPicture.asset(
+        Assets.svgAdsIcon,
+        colorFilter: colorFilter(
+          color: selectedIndex == 1 ? kPrimaryColor : kDarkGreyColor,
+        ),
+      ),
+      label: 'Ads',
+    ),
+    BottomNavigationBarItem(
+      icon: SvgPicture.asset(
+        Assets.svgAdminIcon,
+        colorFilter: colorFilter(
+          color: selectedIndex == 2 ? kPrimaryColor : kDarkGreyColor,
+        ),
+      ),
+      label: 'Admin',
+    ),
+    BottomNavigationBarItem(
+      icon: SvgPicture.asset(
+        Assets.svgAnnouncementIcon,
+        colorFilter: colorFilter(
+          color: selectedIndex == 3 ? kPrimaryColor : kDarkGreyColor,
+        ),
+      ),
+      label: 'Announce',
+    ),
+  ];
 
   Widget _buildCustomBottomNav() {
     final items = [
@@ -116,49 +120,56 @@ class _AdminBottomNavBarState extends State<AdminBottomNavBar> {
 
     return Container(
       color: kWhiteColor,
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: List.generate(items.length, (index) {
-          final item = items[index];
-          final isSelected = selectedIndex == index;
-          final iconColor = isSelected ? kPrimaryColor : kDarkGreyColor;
-          final textColor = isSelected ? kPrimaryColor : kDarkGreyColor;
-          final label = item['label'] as String;
-          return GestureDetector(
-            onTap: () => onItemTapped(index),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected ? kPrimaryColor : Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset(
-                    item['icon'] as String,
-                    colorFilter: colorFilter(color: isSelected ? kWhiteColor : kDarkGreyColor),
-                    width: 20,
-                    height: 20,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(items.length, (index) {
+              final item = items[index];
+              final isSelected = selectedIndex == index;
+              final iconColor = isSelected ? kPrimaryColor : kDarkGreyColor;
+              final textColor = isSelected ? kPrimaryColor : kDarkGreyColor;
+              final label = item['label'] as String;
+              return GestureDetector(
+                onTap: () => onItemTapped(index),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
                   ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(
-                      label,
-                      style: context.normal.copyWith(
-                        color: isSelected ? kWhiteColor : kDarkGreyColor,
-                        fontSize: 11,
+                  decoration: BoxDecoration(
+                    color: isSelected ? kPrimaryColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SvgPicture.asset(
+                        item['icon'] as String,
+                        colorFilter: colorFilter(
+                          color: isSelected ? kWhiteColor : kDarkGreyColor,
+                        ),
+                        width: 24,
+                        height: 24,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                      if (isSelected) const SizedBox(width: 6),
+                      if (isSelected)
+                        Text(
+                          label,
+                          style: context.normal.copyWith(
+                            color: isSelected ? kWhiteColor : kDarkGreyColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          );
-        }),
+                ),
+              );
+            }),
+          ),
+        ),
       ),
     );
   }

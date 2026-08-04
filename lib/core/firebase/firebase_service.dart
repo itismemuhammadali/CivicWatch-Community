@@ -69,11 +69,18 @@ class FirebaseAuthService {
 
       await credential.user?.updateDisplayName('$firstName $lastName');
 
+      final intUserId = DateTime.now().millisecondsSinceEpoch;
       await _firestore.collection('users').doc(credential.user?.uid).set({
         'firstName': firstName,
+        'first_name': firstName,
         'lastName': lastName,
+        'last_name': lastName,
         'email': email,
+        'user_email': email,
         'role': role,
+        'userId': intUserId,
+        'user_id': intUserId,
+        'firebase_uid': credential.user?.uid,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
@@ -168,13 +175,23 @@ class FirebaseAuthService {
             role = 'admin';
           }
           try {
+            final fName = emailLower.contains('superadmin')
+                ? 'Super'
+                : (emailLower.contains('admin') ? 'Admin' : 'User');
+            final intUserId = emailLower.contains('superadmin')
+                ? 3
+                : (emailLower.contains('admin') ? 2 : (credential.user?.uid.hashCode.abs() ?? DateTime.now().millisecondsSinceEpoch));
             await _firestore.collection('users').doc(credential.user?.uid).set({
-              'firstName': emailLower.contains('superadmin')
-                  ? 'Super'
-                  : (emailLower.contains('admin') ? 'Admin' : 'User'),
+              'firstName': fName,
+              'first_name': fName,
               'lastName': 'Test',
+              'last_name': 'Test',
               'email': emailLower,
+              'user_email': emailLower,
               'role': role,
+              'userId': intUserId,
+              'user_id': intUserId,
+              'firebase_uid': credential.user?.uid,
               'createdAt': FieldValue.serverTimestamp(),
             });
           } catch (fsWriteError) {
@@ -229,11 +246,21 @@ class FirebaseAuthService {
 
           await credential.user?.updateDisplayName('$firstName Test');
 
+          final intUserId = emailLower.contains('superadmin')
+              ? 3
+              : (emailLower.contains('admin') ? 2 : (credential.user?.uid.hashCode.abs() ?? DateTime.now().millisecondsSinceEpoch));
+
           await _firestore.collection('users').doc(credential.user?.uid).set({
             'firstName': firstName,
+            'first_name': firstName,
             'lastName': 'Test',
+            'last_name': 'Test',
             'email': emailLower,
+            'user_email': emailLower,
             'role': role,
+            'userId': intUserId,
+            'user_id': intUserId,
+            'firebase_uid': credential.user?.uid,
             'createdAt': FieldValue.serverTimestamp(),
           });
 

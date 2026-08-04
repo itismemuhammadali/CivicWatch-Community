@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cctv_app/core/network/services/application_cloud_service.dart';
 import 'package:cctv_app/core/firebase/firestore_service.dart';
+import 'package:cctv_app/core/services/user_cache_service.dart';
 
 class UserProfilePage extends StatefulWidget {
   const UserProfilePage({super.key});
@@ -35,19 +36,38 @@ class _UserProfilePageState extends State<UserProfilePage> {
   final List<String> cities = ['Vancouver', 'Toronto', 'Montreal', 'Calgary'];
   final List<String> countries = ['Canada', 'USA', 'UK', 'Australia'];
   final List<String> months = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December'
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
   ];
   final List<String> days = List.generate(31, (i) => '${i + 1}');
-  final List<String> years = List.generate(80, (i) => '${DateTime.now().year - i}');
+  final List<String> years = List.generate(
+    80,
+    (i) => '${DateTime.now().year - i}',
+  );
   final List<String> genders = ['Male', 'Female', 'Other'];
 
   @override
   void initState() {
     super.initState();
-    firstNameController = TextEditingController(text: AuthStorage.cachedFirstName ?? 'Alex');
-    lastNameController = TextEditingController(text: AuthStorage.cachedLastName ?? 'Honnold');
-    emailController = TextEditingController(text: AuthStorage.cachedEmail ?? 'user@cctv.app');
+    firstNameController = TextEditingController(
+      text: AuthStorage.cachedFirstName ?? 'Alex',
+    );
+    lastNameController = TextEditingController(
+      text: AuthStorage.cachedLastName ?? 'Honnold',
+    );
+    emailController = TextEditingController(
+      text: AuthStorage.cachedEmail ?? 'user@cctv.app',
+    );
     phoneController = TextEditingController(text: '(778) 123-4567');
     selectedCity = 'Vancouver';
     selectedCountry = 'Canada';
@@ -66,21 +86,25 @@ class _UserProfilePageState extends State<UserProfilePage> {
     });
     try {
       final storage = const AuthStorage();
-      final uid = await storage.readFirebaseUid() ?? AuthStorage.cachedFirebaseUid;
+      final uid =
+          await storage.readFirebaseUid() ?? AuthStorage.cachedFirebaseUid;
       if (uid == null) {
         throw Exception("No firebase user ID found");
       }
       final profile = await FirestoreDataService().getUserProfile(uid);
       if (profile != null) {
-        firstNameController.text = profile['firstName'] ?? profile['first_name'] ?? '';
-        lastNameController.text = profile['lastName'] ?? profile['last_name'] ?? '';
+        firstNameController.text =
+            profile['firstName'] ?? profile['first_name'] ?? '';
+        lastNameController.text =
+            profile['lastName'] ?? profile['last_name'] ?? '';
         emailController.text = profile['email'] ?? profile['user_email'] ?? '';
         phoneController.text = profile['phone'] ?? '';
         selectedCity = profile['city'];
         selectedCountry = profile['country'];
         selectedGender = profile['gender'];
         isPublic = profile['isPublic'] ?? true;
-        _profileImageUrl = profile['profileImageUrl'] ?? profile['profile_image_url'];
+        _profileImageUrl =
+            profile['profileImageUrl'] ?? profile['profile_image_url'];
 
         final dobStr = profile['dob'] as String?;
         if (dobStr != null && dobStr.isNotEmpty) {
@@ -136,9 +160,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload image: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));
       }
     } finally {
       if (mounted) {
@@ -156,13 +180,16 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
     try {
       final storage = const AuthStorage();
-      final uid = await storage.readFirebaseUid() ?? AuthStorage.cachedFirebaseUid;
+      final uid =
+          await storage.readFirebaseUid() ?? AuthStorage.cachedFirebaseUid;
       if (uid == null) {
         throw Exception("No firebase user ID found");
       }
 
       String? dob;
-      if (selectedYear != null && selectedMonth != null && selectedDay != null) {
+      if (selectedYear != null &&
+          selectedMonth != null &&
+          selectedDay != null) {
         final monthIndex = months.indexOf(selectedMonth!) + 1;
         final monthStr = monthIndex.toString().padLeft(2, '0');
         final dayStr = int.parse(selectedDay!).toString().padLeft(2, '0');
@@ -171,8 +198,11 @@ class _UserProfilePageState extends State<UserProfilePage> {
 
       final updates = {
         'firstName': firstNameController.text.trim(),
+        'first_name': firstNameController.text.trim(),
         'lastName': lastNameController.text.trim(),
+        'last_name': lastNameController.text.trim(),
         'email': emailController.text.trim(),
+        'user_email': emailController.text.trim(),
         'phone': phoneController.text.trim(),
         'city': selectedCity,
         'country': selectedCountry,
@@ -180,6 +210,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
         'isPublic': isPublic,
         if (dob != null) 'dob': dob,
         if (_profileImageUrl != null) 'profileImageUrl': _profileImageUrl,
+        if (_profileImageUrl != null) 'profile_image_url': _profileImageUrl,
+        if (_profileImageUrl != null) 'avatar_url': _profileImageUrl,
       };
 
       await FirestoreDataService().updateUserProfile(uid, updates);
@@ -188,7 +220,8 @@ class _UserProfilePageState extends State<UserProfilePage> {
       final userId = await storage.readUserId() ?? 0;
       final roleId = await storage.readRoleId();
       final roleDescription = await storage.readRoleDescription();
-      final dashboardType = await storage.readDashboardType() ?? DashboardType.user;
+      final dashboardType =
+          await storage.readDashboardType() ?? DashboardType.user;
 
       await storage.saveAuth(
         accessToken: await storage.readAccessToken() ?? '',
@@ -203,6 +236,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
         firebaseUid: uid,
       );
 
+      // Invalidate UserCacheService so post enrichment & connections pull fresh data immediately
+      if (userId > 0) UserCacheService().invalidate(userId);
+      UserCacheService().invalidateByFirebaseUid(uid);
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully!')),
@@ -211,9 +248,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update profile: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update profile: $e')));
       }
     } finally {
       if (mounted) {
@@ -272,13 +309,17 @@ class _UserProfilePageState extends State<UserProfilePage> {
                         if (_isUploadingPhoto)
                           const CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(kPrimaryColor),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              kPrimaryColor,
+                            ),
                           ),
                       ],
                     ),
                     Space.horizontal(16),
                     Text(
-                      _isUploadingPhoto ? 'Uploading...' : 'Upload Profile Photo',
+                      _isUploadingPhoto
+                          ? 'Uploading...'
+                          : 'Upload Profile Photo',
                       style: context.normal.copyWith(
                         fontSize: 14,
                         color: kBlackColor,
@@ -292,7 +333,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
               // ✅ First Name
               Text(
                 'First name',
-                style: context.bold.copyWith(fontSize: 12, color: kDarkGreyColor),
+                style: context.bold.copyWith(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                ),
               ),
               Space.vertical(6),
               TextField(
@@ -307,8 +351,15 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: kLightGreyColor),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  suffixIcon: const Icon(Icons.person_outline, size: 20, color: kDarkGreyColor),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  suffixIcon: const Icon(
+                    Icons.person_outline,
+                    size: 20,
+                    color: kDarkGreyColor,
+                  ),
                 ),
               ),
               Space.vertical(16),
@@ -316,7 +367,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
               // ✅ Last Name
               Text(
                 'Last name',
-                style: context.bold.copyWith(fontSize: 12, color: kDarkGreyColor),
+                style: context.bold.copyWith(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                ),
               ),
               Space.vertical(6),
               TextField(
@@ -331,8 +385,15 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: kLightGreyColor),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  suffixIcon: const Icon(Icons.person_outline, size: 20, color: kDarkGreyColor),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  suffixIcon: const Icon(
+                    Icons.person_outline,
+                    size: 20,
+                    color: kDarkGreyColor,
+                  ),
                 ),
               ),
               Space.vertical(16),
@@ -340,7 +401,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
               // ✅ Email
               Text(
                 'Email',
-                style: context.bold.copyWith(fontSize: 12, color: kDarkGreyColor),
+                style: context.bold.copyWith(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                ),
               ),
               Space.vertical(6),
               TextField(
@@ -355,8 +419,15 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: kLightGreyColor),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  suffixIcon: const Icon(Icons.email_outlined, size: 20, color: kDarkGreyColor),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                  suffixIcon: const Icon(
+                    Icons.email_outlined,
+                    size: 20,
+                    color: kDarkGreyColor,
+                  ),
                 ),
               ),
               Space.vertical(16),
@@ -364,7 +435,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
               // ✅ Phone Number
               Text(
                 'Phone Number',
-                style: context.bold.copyWith(fontSize: 12, color: kDarkGreyColor),
+                style: context.bold.copyWith(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                ),
               ),
               Space.vertical(6),
               TextField(
@@ -379,7 +453,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: kLightGreyColor),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                 ),
               ),
               Space.vertical(16),
@@ -387,7 +464,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
               // ✅ Location
               Text(
                 'Location',
-                style: context.bold.copyWith(fontSize: 12, color: kDarkGreyColor),
+                style: context.bold.copyWith(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                ),
               ),
               Space.vertical(6),
               Row(
@@ -404,12 +484,16 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(color: kLightGreyColor),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                       ),
                       items: cities.map((city) {
                         return DropdownMenuItem(value: city, child: Text(city));
                       }).toList(),
-                      onChanged: (value) => setState(() => selectedCity = value),
+                      onChanged: (value) =>
+                          setState(() => selectedCity = value),
                     ),
                   ),
                   Space.horizontal(12),
@@ -425,12 +509,19 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(color: kLightGreyColor),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
                       ),
                       items: countries.map((country) {
-                        return DropdownMenuItem(value: country, child: Text(country));
+                        return DropdownMenuItem(
+                          value: country,
+                          child: Text(country),
+                        );
                       }).toList(),
-                      onChanged: (value) => setState(() => selectedCountry = value),
+                      onChanged: (value) =>
+                          setState(() => selectedCountry = value),
                     ),
                   ),
                 ],
@@ -440,13 +531,17 @@ class _UserProfilePageState extends State<UserProfilePage> {
               // ✅ Birthday
               Text(
                 'Birthday',
-                style: context.bold.copyWith(fontSize: 12, color: kDarkGreyColor),
+                style: context.bold.copyWith(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                ),
               ),
               Space.vertical(6),
               Row(
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       value: selectedMonth,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
@@ -457,17 +552,25 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(color: kLightGreyColor),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
                       ),
                       items: months.map((month) {
-                        return DropdownMenuItem(value: month, child: Text(month));
+                        return DropdownMenuItem(
+                          value: month,
+                          child: Text(month, overflow: TextOverflow.ellipsis),
+                        );
                       }).toList(),
-                      onChanged: (value) => setState(() => selectedMonth = value),
+                      onChanged: (value) =>
+                          setState(() => selectedMonth = value),
                     ),
                   ),
                   Space.horizontal(8),
                   Expanded(
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       value: selectedDay,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
@@ -478,10 +581,13 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(color: kLightGreyColor),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
                       ),
                       items: days.map((day) {
-                        return DropdownMenuItem(value: day, child: Text(day));
+                        return DropdownMenuItem(value: day, child: Text(day, overflow: TextOverflow.ellipsis));
                       }).toList(),
                       onChanged: (value) => setState(() => selectedDay = value),
                     ),
@@ -489,6 +595,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                   Space.horizontal(8),
                   Expanded(
                     child: DropdownButtonFormField<String>(
+                      isExpanded: true,
                       value: selectedYear,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
@@ -499,12 +606,16 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           borderRadius: BorderRadius.circular(8),
                           borderSide: const BorderSide(color: kLightGreyColor),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 12,
+                        ),
                       ),
                       items: years.map((year) {
-                        return DropdownMenuItem(value: year, child: Text(year));
+                        return DropdownMenuItem(value: year, child: Text(year, overflow: TextOverflow.ellipsis));
                       }).toList(),
-                      onChanged: (value) => setState(() => selectedYear = value),
+                      onChanged: (value) =>
+                          setState(() => selectedYear = value),
                     ),
                   ),
                 ],
@@ -514,7 +625,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
               // ✅ Profile (Public/Private)
               Text(
                 'Profile',
-                style: context.bold.copyWith(fontSize: 12, color: kDarkGreyColor),
+                style: context.bold.copyWith(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                ),
               ),
               Space.vertical(6),
               Row(
@@ -537,10 +651,14 @@ class _UserProfilePageState extends State<UserProfilePage> {
               // ✅ Gender
               Text(
                 'Gender',
-                style: context.normal.copyWith(fontSize: 12, color: kDarkGreyColor),
+                style: context.normal.copyWith(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                ),
               ),
               Space.vertical(6),
               DropdownButtonFormField<String>(
+                isExpanded: true,
                 value: selectedGender,
                 decoration: InputDecoration(
                   border: OutlineInputBorder(
@@ -551,7 +669,10 @@ class _UserProfilePageState extends State<UserProfilePage> {
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: kLightGreyColor),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
                 ),
                 items: genders.map((gender) {
                   return DropdownMenuItem(value: gender, child: Text(gender));
@@ -578,7 +699,9 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(kWhiteColor),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              kWhiteColor,
+                            ),
                           ),
                         )
                       : Text(

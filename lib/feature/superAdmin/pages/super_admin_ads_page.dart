@@ -1,6 +1,7 @@
 import 'package:cctv_app/core/components/current_user_avatar.dart';
 import 'package:cctv_app/core/components/custom_textfield.dart';
 import 'package:cctv_app/core/components/notification_icon_button.dart';
+import 'package:cctv_app/core/components/super_admin_top_header.dart';
 import 'package:cctv_app/core/components/primary_button.dart';
 import 'package:cctv_app/core/components/space.dart';
 import 'package:cctv_app/core/extensions/context.dart';
@@ -20,160 +21,140 @@ class SuperAdminAdsPage extends StatefulWidget {
 
 class _SuperAdminAdsPageState extends State<SuperAdminAdsPage> {
   int _selectedIndex = 0;
-  final _tabs = ['Active Ads', 'Pending Ads', 'Scheduled Ads', 'Cancel'];
-  final _statusKeys = ['active', 'pending', 'scheduled', 'cancel'];
+  final _tabs = [
+    'Active Ads',
+    'Pending Ads',
+    'Scheduled Ads',
+    'Paused Ads',
+    'Cancel',
+  ];
+  final _statusKeys = ['active', 'pending', 'scheduled', 'paused', 'cancel'];
 
   @override
   Widget build(BuildContext context) {
     final currentStatusKey = _statusKeys[_selectedIndex];
 
-    return Scaffold(
-      backgroundColor: kWhiteColor,
-      body: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Space.vertical(10),
-              // Header
-              Row(
-                children: [
-                  CurrentUserAvatar(
-                    radius: 24,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const ProfilePage()),
-                      );
-                    },
-                  ),
-                  Space.horizontal(10),
-                  Expanded(
-                    child: CustomTextField(
-                      topPadding: 10,
-                      bottomPadding: 10,
-                      hintText: "Search",
-                      prefix: const Icon(Icons.search, color: kDarkGreyColor),
-                      hintTextColor: kDarkGreyColor,
-                    ),
-                  ),
-                  Space.horizontal(10),
-                  NotificationIconButton(
-                    decoration: BoxDecoration(
-                      color: kWhiteColor,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: kGreyColor),
-                    ),
-                    padding: const EdgeInsets.all(10),
-                  ),
-                ],
-              ),
-              Space.vertical(20),
-              Align(
-                alignment: Alignment.centerRight,
-                child: PrimaryButton(
-                  text: "Create new ads",
-                  height: 36,
-                  isMainAxisSizeMin: true,
-                  postfixIcon: const Icon(Icons.add, color: kWhiteColor, size: 20),
-                  onPressed: () async {
-                    final created = await Navigator.push<bool>(
-                      context,
-                      MaterialPageRoute(builder: (context) => const CreateAdPage()),
-                    );
-                    if (created == true) {
-                      setState(() {});
-                    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SuperAdminTopHeader(),
+          Space.vertical(20),
+          Align(
+            alignment: Alignment.centerRight,
+            child: PrimaryButton(
+              text: "Create new ads",
+              height: 36,
+              isMainAxisSizeMin: true,
+              postfixIcon: const Icon(Icons.add, color: kWhiteColor, size: 20),
+              onPressed: () async {
+                final created = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CreateAdPage()),
+                );
+                if (created == true) {
+                  setState(() {});
+                }
+              },
+            ),
+          ),
+          Space.vertical(20),
+          Text(
+            _tabs[_selectedIndex],
+            style: context.semiBold.copyWith(fontSize: 22, color: kBlackColor),
+          ),
+          Space.vertical(12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(_tabs.length, (index) {
+                final isSelected = _selectedIndex == index;
+                return GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _selectedIndex = index;
+                    });
                   },
-                ),
-              ),
-              Space.vertical(20),
-              Text(
-                _tabs[_selectedIndex], 
-                style: context.semiBold.copyWith(fontSize: 22, color: kBlackColor),
-              ),
-              Space.vertical(12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: List.generate(_tabs.length, (index) {
-                    final isSelected = _selectedIndex == index;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedIndex = index;
-                        });
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 20),
-                        padding: const EdgeInsets.only(bottom: 4),
-                        decoration: BoxDecoration(
-                          border: Border(
-                            bottom: BorderSide(
-                              color: isSelected ? kPrimaryColor : Colors.transparent,
-                              width: 2,
-                            ),
-                          ),
-                        ),
-                        child: Text(
-                          _tabs[index],
-                          style: context.medium.copyWith(
-                            fontSize: 14,
-                            color: isSelected ? kBlackColor : kDarkGreyColor,
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                          ),
+                  child: Container(
+                    margin: const EdgeInsets.only(right: 20),
+                    padding: const EdgeInsets.only(bottom: 4),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(
+                          color: isSelected
+                              ? kPrimaryColor
+                              : Colors.transparent,
+                          width: 2,
                         ),
                       ),
-                    );
-                  }),
-                ),
-              ),
-              Space.vertical(16),
-              Expanded(
-                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                  stream: FirebaseFirestore.instance.collection('ads').snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    final docs = snapshot.data?.docs ?? [];
-                    final filteredDocs = docs.where((doc) {
-                      final data = doc.data();
-                      final st = (data['status'] ?? 'active').toString().toLowerCase();
-                      if (currentStatusKey == 'active') {
-                        return st == 'active' || st == 'draft';
-                      }
-                      return st == currentStatusKey;
-                    }).toList();
-
-                    if (filteredDocs.isEmpty) {
-                      return Center(
-                        child: Text(
-                          'No ads found for ${_tabs[_selectedIndex]}', 
-                          style: context.normal.copyWith(color: kDarkGreyColor),
-                        ),
-                      );
-                    }
-
-                    return ListView.separated(
-                      padding: EdgeInsets.zero,
-                      itemCount: filteredDocs.length,
-                      separatorBuilder: (_, __) => Space.vertical(12),
-                      itemBuilder: (context, index) {
-                        final data = filteredDocs[index].data();
-                        final docId = filteredDocs[index].id;
-                        return _buildDynamicAdCard(docId, data);
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
+                    ),
+                    child: Text(
+                      _tabs[index],
+                      style: context.medium.copyWith(
+                        fontSize: 14,
+                        color: isSelected ? kBlackColor : kDarkGreyColor,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ),
           ),
-        ),
+          Space.vertical(16),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance.collection('ads').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                final docs = snapshot.data?.docs ?? [];
+                final filteredDocs = docs.where((doc) {
+                  final data = doc.data();
+                  final st = (data['status'] ?? 'active')
+                      .toString()
+                      .toLowerCase();
+                  if (currentStatusKey == 'active') {
+                    return st == 'active' || st == 'draft';
+                  }
+                  if (currentStatusKey == 'scheduled') {
+                    return st == 'scheduled' || st == 'paused';
+                  }
+                  if (currentStatusKey == 'cancel') {
+                    return st == 'cancel' || st == 'cancelled';
+                  }
+                  return st == currentStatusKey;
+                }).toList();
+
+                if (filteredDocs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No ads found for ${_tabs[_selectedIndex]}',
+                      style: context.normal.copyWith(color: kDarkGreyColor),
+                    ),
+                  );
+                }
+
+                return ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: filteredDocs.length,
+                  separatorBuilder: (_, __) => Space.vertical(12),
+                  itemBuilder: (context, index) {
+                    final data = filteredDocs[index].data();
+                    final docId = filteredDocs[index].id;
+                    return _buildDynamicAdCard(docId, data);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -183,7 +164,7 @@ class _SuperAdminAdsPageState extends State<SuperAdminAdsPage> {
     final startDate = data['startAt']?.toString() ?? 'Today';
     final runDays = '${data['runDays'] ?? 30} days';
     final coverUrl = data['coverImageUrl']?.toString() ?? '';
-    final status = (data['status'] ?? 'active').toString();
+    final status = (data['status'] ?? 'active').toString().toLowerCase();
 
     return Container(
       decoration: BoxDecoration(
@@ -208,7 +189,10 @@ class _SuperAdminAdsPageState extends State<SuperAdminAdsPage> {
                     coverUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(Icons.image_not_supported, color: kDarkGreyColor),
+                      child: Icon(
+                        Icons.image_not_supported,
+                        color: kDarkGreyColor,
+                      ),
                     ),
                   )
                 : const Center(
@@ -220,26 +204,92 @@ class _SuperAdminAdsPageState extends State<SuperAdminAdsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: context.semiBold.copyWith(fontSize: 14, color: kBlackColor),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.semiBold.copyWith(
+                          fontSize: 14,
+                          color: kBlackColor,
+                        ),
+                      ),
+                    ),
+                    if (status.isNotEmpty) ...[
+                      Space.horizontal(6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: status == 'active'
+                              ? const Color(0xFFE8F5E9)
+                              : status == 'paused'
+                              ? const Color(0xFFFFF3E0)
+                              : status == 'scheduled'
+                              ? const Color(0xFFE3F2FD)
+                              : const Color(0xFFFFEBEE),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status.toUpperCase(),
+                          style: context.semiBold.copyWith(
+                            fontSize: 9,
+                            color: status == 'active'
+                                ? Colors.green.shade800
+                                : status == 'paused'
+                                ? Colors.orange.shade900
+                                : status == 'scheduled'
+                                ? Colors.blue.shade800
+                                : Colors.red.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 Space.vertical(12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Start Date", style: context.semiBold.copyWith(fontSize: 12, color: kBlackColor)),
-                    Text(startDate, style: context.normal.copyWith(fontSize: 11, color: kDarkGreyColor)),
+                    Text(
+                      "Start Date",
+                      style: context.semiBold.copyWith(
+                        fontSize: 12,
+                        color: kBlackColor,
+                      ),
+                    ),
+                    Text(
+                      startDate,
+                      style: context.normal.copyWith(
+                        fontSize: 11,
+                        color: kDarkGreyColor,
+                      ),
+                    ),
                   ],
                 ),
                 Space.vertical(8),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Run Days", style: context.semiBold.copyWith(fontSize: 12, color: kBlackColor)),
-                    Text(runDays, style: context.normal.copyWith(fontSize: 11, color: kDarkGreyColor)),
+                    Text(
+                      "Run Days",
+                      style: context.semiBold.copyWith(
+                        fontSize: 12,
+                        color: kBlackColor,
+                      ),
+                    ),
+                    Text(
+                      runDays,
+                      style: context.normal.copyWith(
+                        fontSize: 11,
+                        color: kDarkGreyColor,
+                      ),
+                    ),
                   ],
                 ),
                 Space.vertical(12),
@@ -249,17 +299,33 @@ class _SuperAdminAdsPageState extends State<SuperAdminAdsPage> {
                       flex: 1,
                       child: GestureDetector(
                         onTap: () async {
-                          final newStatus = status == 'active' ? 'cancel' : 'active';
-                          await FirebaseFirestore.instance.collection('ads').doc(docId).update({'status': newStatus});
+                          final newStatus =
+                              (status == 'active' || status == 'paused')
+                              ? 'cancel'
+                              : 'active';
+                          await FirebaseFirestore.instance
+                              .collection('ads')
+                              .doc(docId)
+                              .update({'status': newStatus});
                         },
                         child: Container(
                           height: 30,
                           decoration: BoxDecoration(
-                            color: status == 'active' ? const Color(0xFFE9253F) : kDarkGreyColor,
+                            color: (status == 'active' || status == 'paused')
+                                ? const Color(0xFFE9253F)
+                                : kDarkGreyColor,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           alignment: Alignment.center,
-                          child: Text(status == 'active' ? "End" : "Activate", style: context.semiBold.copyWith(fontSize: 12, color: kWhiteColor)),
+                          child: Text(
+                            (status == 'active' || status == 'paused')
+                                ? "End"
+                                : "Activate",
+                            style: context.semiBold.copyWith(
+                              fontSize: 12,
+                              color: kWhiteColor,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -268,18 +334,37 @@ class _SuperAdminAdsPageState extends State<SuperAdminAdsPage> {
                       flex: 1,
                       child: GestureDetector(
                         onTap: () async {
-                          final newStatus = status == 'paused' ? 'active' : 'paused';
-                          await FirebaseFirestore.instance.collection('ads').doc(docId).update({'status': newStatus});
+                          final newStatus = status == 'paused'
+                              ? 'active'
+                              : 'paused';
+                          await FirebaseFirestore.instance
+                              .collection('ads')
+                              .doc(docId)
+                              .update({'status': newStatus});
                         },
                         child: Container(
                           height: 30,
                           decoration: BoxDecoration(
-                            color: kWhiteColor,
-                            border: Border.all(color: kGreyColor),
+                            color: status == 'paused'
+                                ? kPrimaryColor
+                                : kWhiteColor,
+                            border: Border.all(
+                              color: status == 'paused'
+                                  ? kPrimaryColor
+                                  : kGreyColor,
+                            ),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           alignment: Alignment.center,
-                          child: Text(status == 'paused' ? "Resume" : "Pause", style: context.semiBold.copyWith(fontSize: 12, color: kBlackColor)),
+                          child: Text(
+                            status == 'paused' ? "Resume" : "Pause",
+                            style: context.semiBold.copyWith(
+                              fontSize: 12,
+                              color: status == 'paused'
+                                  ? kWhiteColor
+                                  : kBlackColor,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -290,7 +375,9 @@ class _SuperAdminAdsPageState extends State<SuperAdminAdsPage> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const StatsPage()),
+                            MaterialPageRoute(
+                              builder: (context) => const StatsPage(),
+                            ),
                           );
                         },
                         child: Container(
@@ -301,7 +388,13 @@ class _SuperAdminAdsPageState extends State<SuperAdminAdsPage> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           alignment: Alignment.center,
-                          child: Text("Stats", style: context.semiBold.copyWith(fontSize: 12, color: kBlackColor)),
+                          child: Text(
+                            "Stats",
+                            style: context.semiBold.copyWith(
+                              fontSize: 12,
+                              color: kBlackColor,
+                            ),
+                          ),
                         ),
                       ),
                     ),

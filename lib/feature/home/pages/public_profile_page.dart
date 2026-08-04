@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:cctv_app/core/network/services/user_case_service.dart';
 import 'package:cctv_app/core/firebase/firestore_service.dart';
+import 'package:cctv_app/core/services/user_cache_service.dart';
 import 'package:cctv_app/feature/profile/pages/user_followers_following_page.dart';
 
 class PublicProfilePage extends StatefulWidget {
@@ -49,13 +50,45 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
   bool _isFollowLoading = true;
   int? _currentUserId;
 
+  String _displayName = '';
+  String? _displayAvatarUrl;
+  bool _isSelfProfile = false;
+
   @override
   void initState() {
     super.initState();
+    _displayName = widget.userName;
+    _displayAvatarUrl = widget.avatarUrl;
     _bindUserStatusEvents();
+    _loadProfileDetails();
     _loadPosts();
     _loadUserReel();
     _loadFollowData();
+  }
+
+  Future<void> _loadProfileDetails() async {
+    _currentUserId = await const AuthStorage().readUserId();
+    if (_currentUserId != null) {
+      final matches = await FirestoreDataService().getAllMatchingUserIds(widget.userId);
+      if (mounted) {
+        setState(() {
+          _isSelfProfile = matches.contains(_currentUserId);
+        });
+      }
+    }
+    try {
+      final user = await UserCacheService().getUser(widget.userId);
+      if (user != null && mounted) {
+        setState(() {
+          if (user.displayName.trim().isNotEmpty && user.displayName != 'Unknown') {
+            _displayName = user.displayName;
+          }
+          if (user.avatarUrl.trim().isNotEmpty) {
+            _displayAvatarUrl = user.avatarUrl;
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadFollowData() async {
@@ -78,7 +111,7 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
   }
 
   Future<void> _toggleFollow() async {
-    if (_currentUserId == null || _currentUserId == widget.userId) return;
+    if (_currentUserId == null || _isSelfProfile) return;
     
     setState(() => _isFollowLoading = true);
     try {
@@ -86,7 +119,7 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
         await FirestoreDataService().unfollowUser(followerId: _currentUserId!, followingId: widget.userId);
         setState(() {
           _isFollowingCurrent = false;
-          _followersCount--;
+          _followersCount = (_followersCount - 1).clamp(0, 999999);
         });
       } else {
         await FirestoreDataService().followUser(followerId: _currentUserId!, followingId: widget.userId);
@@ -210,117 +243,132 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final titleName = _displayName.trim().isNotEmpty ? _displayName.trim() : 'Profile';
     return Scaffold(
       backgroundColor: kWhiteColor,
       appBar: AppBar(
         backgroundColor: kWhiteColor,
+        elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: kBlackColor),
-        title: Text('Profile', style: context.bold.copyWith(fontSize: 18, color: kBlackColor)),
+        title: Text(titleName, style: context.bold.copyWith(fontSize: 18, color: kBlackColor)),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
-          await Future.wait([_loadPosts(), _loadUserReel(), _loadFollowData()]);
+          await Future.wait([_loadProfileDetails(), _loadPosts(), _loadUserReel(), _loadFollowData()]);
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
+              // --- Centered Avatar (TikTok Style) ---
+              Stack(
+                alignment: Alignment.bottomRight,
                 children: [
                   _ProfileAvatar(
-                    avatarUrl: widget.avatarUrl,
-                    userName: widget.userName,
-                    radius: 28,
+                    avatarUrl: _displayAvatarUrl,
+                    userName: titleName,
+                    radius: 44,
                   ),
-                  Space.horizontal(12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.userName,
-                          style: context.bold.copyWith(fontSize: 16),
-                        ),
-                        Text(
-                          _userStatus,
-                          style: context.normal.copyWith(
-                            fontSize: 12,
-                            color: kDarkGreyColor,
-                          ),
-                        ),
-                      ],
+                  Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: _userStatus == 'Online' ? Colors.green : kDarkGreyColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: kWhiteColor, width: 2),
+                    ),
+                  ),
+                ],
+              ),
+              Space.vertical(12),
+
+              // --- Centered Name & Status ---
+              Text(
+                titleName,
+                style: context.bold.copyWith(fontSize: 20, color: kBlackColor),
+                textAlign: TextAlign.center,
+              ),
+              Space.vertical(4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: kTextfieldBlueColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Community Member',
+                      style: context.normal.copyWith(fontSize: 12, color: kPrimaryColor),
+                    ),
+                  ),
+                  Space.horizontal(8),
+                  Text(
+                    '•  $_userStatus',
+                    style: context.normal.copyWith(
+                      fontSize: 12,
+                      color: _userStatus == 'Online' ? Colors.green : kDarkGreyColor,
                     ),
                   ),
                 ],
               ),
               Space.vertical(16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.userName,
-                        style: context.bold.copyWith(fontSize: 18),
-                      ),
-                      Text(
-                        'The description of my profile',
-                        style: context.normal.copyWith(color: kDarkGreyColor),
-                      ),
-                    ],
+
+              // --- Follow / Profile Action Button ---
+              if (!_isSelfProfile)
+                PrimaryButton(
+                  text: _isFollowingCurrent ? 'Unfollow' : 'Follow',
+                  isMainAxisSizeMin: true,
+                  onPressed: () {
+                    if (!_isFollowLoading) _toggleFollow();
+                  },
+                  height: 38,
+                  buttonColor: _isFollowingCurrent ? kWhiteColor : kPrimaryColor,
+                  textColor: _isFollowingCurrent ? kBlackColor : kWhiteColor,
+                  showBorder: _isFollowingCurrent,
+                  borderColor: _isFollowingCurrent ? kGreyColor : kTransparentColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 36),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: kContainerGreyColor,
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                  if (_currentUserId == null || _currentUserId != widget.userId)
-                    PrimaryButton(
-                      text: _isFollowingCurrent ? 'Unfollow' : 'Follow',
-                      onPressed: () {
-                        if (!_isFollowLoading) _toggleFollow();
-                      },
-                      height: 36,
-                      buttonColor: _isFollowingCurrent ? kWhiteColor : kPrimaryColor,
-                      textColor: _isFollowingCurrent ? kBlackColor : kWhiteColor,
-                      showBorder: _isFollowingCurrent,
-                      borderColor: _isFollowingCurrent ? kGreyColor : kTransparentColor,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                    )
-                  else
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: kContainerGreyColor,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'Your Profile',
-                        style: context.semiBold.copyWith(color: kDarkGreyColor, fontSize: 13),
-                      ),
-                    ),
-                ],
-              ),
+                  child: Text(
+                    'Your Profile',
+                    style: context.semiBold.copyWith(color: kDarkGreyColor, fontSize: 13),
+                  ),
+                ),
               Space.vertical(20),
+
+              // --- Followers / Following / Posts Stats Row (TikTok Style) ---
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => UserFollowersFollowingPage(
                             userId: widget.userId,
-                            initialTabIndex: 0, // Followers
+                            initialTabIndex: 0,
                           ),
                         ),
                       );
+                      _loadFollowData();
                     },
                     child: Column(
                       children: [
                         Text(
                           '$_followersCount',
-                          style: context.bold.copyWith(fontSize: 16),
+                          style: context.bold.copyWith(fontSize: 18, color: kBlackColor),
                         ),
                         Text(
                           'Followers',
@@ -329,24 +377,25 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
                       ],
                     ),
                   ),
-                  Space.horizontal(32),
+                  Container(height: 24, width: 1, color: kGreyColor),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => UserFollowersFollowingPage(
                             userId: widget.userId,
-                            initialTabIndex: 1, // Following
+                            initialTabIndex: 1,
                           ),
                         ),
                       );
+                      _loadFollowData();
                     },
                     child: Column(
                       children: [
                         Text(
                           '$_followingCount',
-                          style: context.bold.copyWith(fontSize: 16),
+                          style: context.bold.copyWith(fontSize: 18, color: kBlackColor),
                         ),
                         Text(
                           'Following',
@@ -355,23 +404,49 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
                       ],
                     ),
                   ),
+                  Container(height: 24, width: 1, color: kGreyColor),
+                  Column(
+                    children: [
+                      Text(
+                        '${_posts.length}',
+                        style: context.bold.copyWith(fontSize: 18, color: kBlackColor),
+                      ),
+                      Text(
+                        'Posts',
+                        style: context.normal.copyWith(fontSize: 12, color: kDarkGreyColor),
+                      ),
+                    ],
+                  ),
                 ],
               ),
-              Space.vertical(16),
+              Space.vertical(20),
+
+              // --- Highlight Reel (if present) ---
               if (_isLoadingReel)
                 const Center(child: CircularProgressIndicator())
               else if (_userReel != null) ...[
-                Text(
-                  'Reels',
-                  style: context.semiBold.copyWith(fontSize: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Highlight Reel',
+                    style: context.semiBold.copyWith(fontSize: 14),
+                  ),
                 ),
                 Space.vertical(10),
-                _ProfileReelCard(reel: _userReel!),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _ProfileReelCard(reel: _userReel!),
+                ),
+                Space.vertical(20),
               ],
-              Space.vertical(16),
-              Text(
-                'Total post',
-                style: context.semiBold.copyWith(fontSize: 14),
+
+              // --- User Posts Section ---
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Posts',
+                  style: context.semiBold.copyWith(fontSize: 16),
+                ),
               ),
               Space.vertical(10),
               _buildBody(context),
@@ -424,7 +499,7 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
         crossAxisCount: 2,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.66,
+        childAspectRatio: 0.58,
       ),
       itemCount: _posts.length,
       itemBuilder: (context, index) {
@@ -795,16 +870,14 @@ class _ProfilePostCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
           Space.vertical(4),
-          Expanded(
-            child: Text(
-              description,
-              style: context.normal.copyWith(
-                overflow: TextOverflow.ellipsis,
-                fontSize: 12,
-                color: kDarkGreyColor,
-              ),
-              maxLines: 3,
+          Text(
+            description,
+            style: context.normal.copyWith(
+              overflow: TextOverflow.ellipsis,
+              fontSize: 12,
+              color: kDarkGreyColor,
             ),
+            maxLines: 2,
           ),
           Space.vertical(6),
           Align(

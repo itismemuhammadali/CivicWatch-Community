@@ -39,6 +39,7 @@ class _CreateCasePageState extends State<CreateCasePage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _caseTitleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _resolutionController = TextEditingController();
 
   bool isMarkAsRead = false;
   bool _hasTriedSubmit = false;
@@ -76,6 +77,7 @@ class _CreateCasePageState extends State<CreateCasePage> {
   void dispose() {
     _caseTitleController.dispose();
     _descriptionController.dispose();
+    _resolutionController.dispose();
     super.dispose();
   }
 
@@ -276,6 +278,7 @@ class _CreateCasePageState extends State<CreateCasePage> {
       isMarkAsRead = false;
       _caseTitleController.clear();
       _descriptionController.clear();
+      _resolutionController.clear();
     });
   }
 
@@ -513,8 +516,9 @@ class _CreateCasePageState extends State<CreateCasePage> {
           'meta_url': firstMedia?['meta_url'],
           'meta_list': metaList,
           'is_accept_terms': isMarkAsRead,
-          // Using the description as resolution until a separate UI field exists.
-          'case_resolution': _descriptionController.text.trim(),
+          'case_resolution': _resolutionController.text.trim().isNotEmpty
+              ? _resolutionController.text.trim()
+              : _descriptionController.text.trim(),
         },
       );
 
@@ -673,8 +677,12 @@ class _CreateCasePageState extends State<CreateCasePage> {
                               alignment: Alignment.topLeft,
                               child: Material(
                                 elevation: 4.0,
-                                child: SizedBox(
-                                  width: constraints.biggest.width,
+                                borderRadius: BorderRadius.circular(8),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    maxWidth: constraints.biggest.width,
+                                    maxHeight: 200,
+                                  ),
                                   child: ListView.builder(
                                     padding: EdgeInsets.zero,
                                     shrinkWrap: true,
@@ -713,7 +721,7 @@ class _CreateCasePageState extends State<CreateCasePage> {
                     ),
                     Space.vertical(8),
                     CustomTextField(
-                      controller: _descriptionController,
+                      controller: _resolutionController,
                       hintText: "Write resolution what happened after win or loss",
                       hintTextColor: kDarkGreyColor,
                       maxLine: 4,

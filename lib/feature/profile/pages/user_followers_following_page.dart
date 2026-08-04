@@ -1,6 +1,5 @@
 import 'package:cctv_app/core/extensions/context.dart';
 import 'package:cctv_app/core/firebase/firestore_service.dart';
-import 'package:cctv_app/core/storage/auth_storage.dart';
 import 'package:cctv_app/core/utils/color_constants.dart';
 import 'package:cctv_app/feature/home/pages/public_profile_page.dart';
 import 'package:flutter/material.dart';
@@ -27,24 +26,19 @@ class _UserFollowersFollowingPageState extends State<UserFollowersFollowingPage>
   
   List<Map<String, dynamic>> _followers = [];
   List<Map<String, dynamic>> _following = [];
-  
-  int? _currentUserId;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTabIndex);
-    _loadCurrentUser();
     _loadData();
-  }
-  
-  Future<void> _loadCurrentUser() async {
-    _currentUserId = await const AuthStorage().readUserId();
   }
 
   Future<void> _loadData() async {
-    _loadFollowers();
-    _loadFollowing();
+    await Future.wait([
+      _loadFollowers(),
+      _loadFollowing(),
+    ]);
   }
 
   Future<void> _loadFollowers() async {
@@ -111,72 +105,79 @@ class _UserFollowersFollowingPageState extends State<UserFollowersFollowingPage>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildUserList(_followers, _isLoadingFollowers),
-          _buildUserList(_following, _isLoadingFollowing),
+          _buildUserList(_followers, _isLoadingFollowers, _loadFollowers),
+          _buildUserList(_following, _isLoadingFollowing, _loadFollowing),
         ],
       ),
     );
   }
   
-  Widget _buildUserList(List<Map<String, dynamic>> users, bool isLoading) {
+  Widget _buildUserList(List<Map<String, dynamic>> users, bool isLoading, Future<void> Function() onRefresh) {
     if (isLoading) {
       return const Center(child: CircularProgressIndicator(color: kPrimaryColor));
     }
     
-    if (users.isEmpty) {
-      return Center(
-        child: Text(
-          'No users found',
-          style: context.normal.copyWith(color: kDarkGreyColor),
-        ),
-      );
-    }
-    
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: users.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, color: kLightGreyColor),
-      itemBuilder: (context, index) {
-        final user = users[index];
-        return _buildUserTile(user);
-      },
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: kPrimaryColor,
+      child: users.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: Center(
+                    child: Text(
+                      'No users found',
+                      style: context.normal.copyWith(color: kDarkGreyColor),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: users.length,
+              separatorBuilder: (_, __) => const Divider(height: 1, color: kLightGreyColor),
+              itemBuilder: (context, index) {
+                final user = users[index];
+                return _buildUserTile(user);
+              },
+            ),
     );
   }
   
   Widget _buildUserTile(Map<String, dynamic> user) {
-    final int userId = user['user_id'];
+    final int userId = user['user_id'] is int ? user['user_id'] : (int.tryParse('${user['user_id']}') ?? 0);
     final String firstName = user['first_name'] ?? '';
     final String lastName = user['last_name'] ?? '';
     final String fullName = '$firstName $lastName'.trim();
     final String avatarUrl = user['avatar_url'] ?? '';
     final String email = user['user_email'] ?? '';
-    
-    // Simplistic check for whether we are following this user
-    // (Ideally, we'd batch check follow status for the list to render "Follow/Unfollow" buttons accurately)
-    // Since we're rendering these for now, let's keep it simple. If it's the "Following" tab and it's our profile, they are followed.
-    // To properly support "Follow/Unfollow" state per user in this list, we'd need another query or a boolean.
-    // For MVP, we'll just let them tap the user to go to the PublicProfilePage where they can Follow/Unfollow.
+    final String displayName = fullName.isNotEmpty ? fullName : (email.isNotEmpty ? email : 'User $userId');
     
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: _buildAvatar(avatarUrl, fullName),
+      leading: _buildAvatar(avatarUrl, displayName),
       title: Text(
-        fullName.isNotEmpty ? fullName : 'User $userId',
+        displayName,
         style: context.semiBold.copyWith(fontSize: 14),
       ),
-      subtitle: email.isNotEmpty
+      subtitle: (fullName.isNotEmpty && email.isNotEmpty)
           ? Text(
               email,
               style: context.normal.copyWith(fontSize: 12, color: kDarkGreyColor),
             )
           : null,
       onTap: () {
+        if (userId <= 0) return;
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => PublicProfilePage(
               userId: userId,
-              userName: fullName.isNotEmpty ? fullName : 'User $userId',
+              userName: displayName,
               avatarUrl: avatarUrl,
             ),
           ),

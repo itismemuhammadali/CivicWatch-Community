@@ -10,7 +10,8 @@ import 'package:cctv_app/core/network/models/active_reel.dart';
 import 'package:cctv_app/core/services/user_cache_service.dart';
 
 class FirestoreDataService {
-  static final FirestoreDataService _instance = FirestoreDataService._internal();
+  static final FirestoreDataService _instance =
+      FirestoreDataService._internal();
   factory FirestoreDataService() => _instance;
   FirestoreDataService._internal();
 
@@ -20,7 +21,10 @@ class FirestoreDataService {
 
   // --- Posts ---
   Future<List<ActivePost>> getAllActivePosts() async {
-    final query = await _db.collection('posts').orderBy('created_at', descending: true).get();
+    final query = await _db
+        .collection('posts')
+        .orderBy('created_at', descending: true)
+        .get();
     return query.docs.map((doc) => ActivePost.fromJson(doc.data())).toList();
   }
 
@@ -32,18 +36,43 @@ class FirestoreDataService {
     throw UnimplementedError('Pass integer userId instead');
   }
 
+  Future<Set<int>> getAllMatchingUserIds(int inputUserId) async {
+    final ids = <int>{inputUserId, inputUserId.abs()};
+    try {
+      final userData = await _getUserDataById(inputUserId);
+      if (userData != null) {
+        final raw1 = userData['user_id'];
+        final raw2 = userData['userId'];
+        final int1 = raw1 is int ? raw1 : int.tryParse('$raw1');
+        final int2 = raw2 is int ? raw2 : int.tryParse('$raw2');
+        if (int1 != null) {
+          ids.add(int1);
+          ids.add(int1.abs());
+        }
+        if (int2 != null) {
+          ids.add(int2);
+          ids.add(int2.abs());
+        }
+        final fbUid = userData['firebase_uid'];
+        if (fbUid is String) {
+          ids.add(fbUid.hashCode);
+          ids.add(fbUid.hashCode.abs());
+        }
+      }
+    } catch (_) {}
+    return ids;
+  }
+
   Future<List<ActivePost>> getPostsByIntUserId(int userId) async {
     try {
-      QuerySnapshot query;
-      try {
-        query = await _db.collection('posts').where('created_by', isEqualTo: userId).get();
-      } catch (_) {
-        query = await _db.collection('posts').get();
-      }
-      var posts = query.docs
-          .map((doc) => ActivePost.fromJson(doc.data() as Map<String, dynamic>))
-          .where((post) => post.authorUserId == userId || post.createdBy == userId)
-          .toList();
+      final matchingIds = await getAllMatchingUserIds(userId);
+      final allPosts = await getAllActivePostsEnriched();
+      final posts = allPosts.where((post) {
+        final authorId = post.authorUserId;
+        final createdBy = post.createdBy;
+        return (authorId != null && matchingIds.contains(authorId)) ||
+            (createdBy != null && matchingIds.contains(createdBy));
+      }).toList();
       posts.sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
       return posts;
     } catch (e) {
@@ -56,17 +85,23 @@ class FirestoreDataService {
     // 1. Get int userId from users collection
     final userDoc = await _db.collection('users').doc(firebaseUid).get();
     if (!userDoc.exists) return [];
-    
+
     final data = userDoc.data()!;
     final userIdVal = data['user_id'] ?? data['userId'];
-    final userId = userIdVal is int ? userIdVal : int.tryParse('$userIdVal') ?? userDoc.id.hashCode;
-    
+    final userId = userIdVal is int
+        ? userIdVal
+        : int.tryParse('$userIdVal') ?? userDoc.id.hashCode;
+
     // 2. Fetch posts by int userId
     return getPostsByIntUserId(userId);
   }
 
   Future<List<ActivePost>> getSavedPostsByUserId(int userId) async {
-    final savedQuery = await _db.collection('saved_posts').where('user_id', isEqualTo: userId).where('is_active', isEqualTo: true).get();
+    final savedQuery = await _db
+        .collection('saved_posts')
+        .where('user_id', isEqualTo: userId)
+        .where('is_active', isEqualTo: true)
+        .get();
     List<ActivePost> savedPosts = [];
     for (var doc in savedQuery.docs) {
       final postId = doc.data()['post_id'];
@@ -108,6 +143,10 @@ class FirestoreDataService {
       for (final post in posts) {
         final authorId = post.authorUserId;
         if (authorId != null) userIds.add(authorId);
+        for (final r in post.reposts) {
+          final rUserId = r.userId ?? r.createdBy;
+          if (rUserId != null) userIds.add(rUserId);
+        }
         for (final d in post.defendantDetails) {
           if (d.defendentId != null) userIds.add(d.defendentId!);
         }
@@ -131,11 +170,11 @@ class FirestoreDataService {
   Future<List<CachedUserInfo>> searchUsers(String query) async {
     final lowercaseQuery = query.toLowerCase().trim();
     final Map<int, CachedUserInfo> userMap = {};
-    
+
     try {
       final snapshot = await _db.collection('users').get();
       for (final doc in snapshot.docs) {
-        final u = CachedUserInfo.fromFirestoreData(doc.data());
+        final u = CachedUserInfo.fromFirestoreData(doc.data(), docId: doc.id);
         if (u != null) userMap[u.userId] = u;
       }
     } catch (_) {}
@@ -145,7 +184,9 @@ class FirestoreDataService {
       for (final post in posts) {
         final creatorId = post.authorUserId;
         final name = post.authorDisplayName;
-        if (creatorId != null && creatorId > 0 && !userMap.containsKey(creatorId)) {
+        if (creatorId != null &&
+            creatorId > 0 &&
+            !userMap.containsKey(creatorId)) {
           final avatar = post.authorAvatarUrl ?? '';
           final parts = name.split(' ');
           final first = parts.isNotEmpty ? parts.first : 'User';
@@ -164,23 +205,23 @@ class FirestoreDataService {
     final users = userMap.values.where((user) {
       if (lowercaseQuery.isEmpty) return true;
       final fullName = '${user.firstName} ${user.lastName}'.toLowerCase();
-      return fullName.contains(lowercaseQuery) || user.email.toLowerCase().contains(lowercaseQuery);
+      return fullName.contains(lowercaseQuery) ||
+          user.email.toLowerCase().contains(lowercaseQuery);
     }).toList();
-        
+
     return users;
   }
 
   Future<List<ActivePost>> searchPosts(String query) async {
     final lowercaseQuery = query.toLowerCase().trim();
     final posts = await getAllActivePostsEnriched();
-    
+
     if (lowercaseQuery.isEmpty) return posts;
-    
+
     return posts.where((post) {
       final text = (post.postDescription).toLowerCase();
       final author = (post.authorDisplayName).toLowerCase();
-      return text.contains(lowercaseQuery) || 
-             author.contains(lowercaseQuery);
+      return text.contains(lowercaseQuery) || author.contains(lowercaseQuery);
     }).toList();
   }
 
@@ -192,6 +233,45 @@ class FirestoreDataService {
       post.createdByUserInfo,
       creatorInfo,
     );
+
+    // Enrich reposts list info
+    final enrichedReposts = post.reposts.map((r) {
+      final rUserId = r.userId ?? r.createdBy;
+      final repostUser = rUserId != null ? users[rUserId] : null;
+      if (repostUser == null) return r;
+
+      final existingDetail = r.repostUserDetail;
+      final fName = repostUser.firstName.isNotEmpty
+          ? repostUser.firstName
+          : (existingDetail?.firstName ?? '');
+      final lName = repostUser.lastName.isNotEmpty
+          ? repostUser.lastName
+          : (existingDetail?.lastName ?? '');
+      final email = repostUser.email.isNotEmpty
+          ? repostUser.email
+          : (existingDetail?.userEmail ?? '');
+      final avatar = repostUser.avatarUrl.isNotEmpty
+          ? repostUser.avatarUrl
+          : (existingDetail?.avatarUrl ?? '');
+
+      final enrichedDetail = ActivePostRepostUserDetail(
+        firstName: fName,
+        lastName: lName,
+        userEmail: email,
+        avatarUrl: avatar,
+      );
+
+      return ActivePostRepost(
+        repostId: r.repostId,
+        postId: r.postId,
+        userId: r.userId,
+        description: r.description,
+        isActive: r.isActive,
+        createdBy: r.createdBy,
+        createdAt: r.createdAt,
+        repostUserDetail: enrichedDetail,
+      );
+    }).toList();
 
     // Enrich defendant details
     final enrichedDefendants = post.defendantDetails.map((d) {
@@ -232,42 +312,49 @@ class FirestoreDataService {
       );
     }).toList();
 
-    // Only create a new post if something actually changed
-    final changed = !identical(enrichedCreator, post.createdByUserInfo) ||
-        enrichedDefendants.length != post.defendantDetails.length ||
-        enrichedComments.length != post.comments.length;
-
-    if (!changed) {
-      // Check if any individual elements changed
-      for (var i = 0; i < enrichedDefendants.length; i++) {
-        if (!identical(enrichedDefendants[i], post.defendantDetails[i])) {
-          return _buildEnrichedPost(post, enrichedCreator, enrichedDefendants, enrichedComments);
-        }
-      }
-      for (var i = 0; i < enrichedComments.length; i++) {
-        if (!identical(enrichedComments[i], post.comments[i])) {
-          return _buildEnrichedPost(post, enrichedCreator, enrichedDefendants, enrichedComments);
-        }
-      }
-      return post;
-    }
-
-    return _buildEnrichedPost(post, enrichedCreator, enrichedDefendants, enrichedComments);
+    return _buildEnrichedPost(
+      post,
+      enrichedCreator,
+      enrichedDefendants,
+      enrichedComments,
+      reposts: enrichedReposts,
+    );
   }
 
   ActivePostUserInfo _buildEnrichedUserInfo(
     ActivePostUserInfo? existing,
     CachedUserInfo? fresh,
   ) {
-    if (fresh == null) return existing ?? const ActivePostUserInfo(firstName: '', lastName: '');
+    final existingAvatarUrl = (existing?.avatarUrl?.trim().isNotEmpty == true)
+        ? existing!.avatarUrl!.trim()
+        : (existing?.applicationMeta?.metaUrl?.trim() ?? '');
 
-    // Only override if fresh data is better (non-empty)
-    final firstName = fresh.firstName.isNotEmpty ? fresh.firstName : (existing?.firstName ?? '');
-    final lastName = fresh.lastName.isNotEmpty ? fresh.lastName : (existing?.lastName ?? '');
-    final email = fresh.email.isNotEmpty ? fresh.email : (existing?.userEmail ?? '');
-    final avatar = fresh.avatarUrl.isNotEmpty ? fresh.avatarUrl : (existing?.avatarUrl ?? '');
+    if (fresh == null) {
+      if (existing != null && (existing.avatarUrl ?? '') != existingAvatarUrl) {
+        return ActivePostUserInfo(
+          firstName: existing.firstName,
+          lastName: existing.lastName,
+          userEmail: existing.userEmail,
+          avatarUrl: existingAvatarUrl,
+          applicationMeta: existing.applicationMeta,
+        );
+      }
+      return existing ?? const ActivePostUserInfo(firstName: '', lastName: '');
+    }
 
-    // If nothing changed, return the original object
+    final firstName = fresh.firstName.isNotEmpty
+        ? fresh.firstName
+        : (existing?.firstName ?? '');
+    final lastName = fresh.lastName.isNotEmpty
+        ? fresh.lastName
+        : (existing?.lastName ?? '');
+    final email = fresh.email.isNotEmpty
+        ? fresh.email
+        : (existing?.userEmail ?? '');
+    final avatar = fresh.avatarUrl.isNotEmpty
+        ? fresh.avatarUrl
+        : existingAvatarUrl;
+
     if (firstName == existing?.firstName &&
         lastName == existing?.lastName &&
         email == (existing?.userEmail ?? '') &&
@@ -288,8 +375,9 @@ class FirestoreDataService {
     ActivePost post,
     ActivePostUserInfo creator,
     List<ActivePostDefendantDetail> defendants,
-    List<ActivePostComment> comments,
-  ) {
+    List<ActivePostComment> comments, {
+    List<ActivePostRepost>? reposts,
+  }) {
     return ActivePost(
       postId: post.postId,
       postDescription: post.postDescription,
@@ -303,12 +391,16 @@ class FirestoreDataService {
       reactionSummary: post.reactionSummary,
       casePollCount: post.casePollCount,
       repostCount: post.repostCount,
-      reposts: post.reposts,
+      reposts: reposts ?? post.reposts,
       savedPostMeta: post.savedPostMeta,
     );
   }
 
-  Future<void> createPostReaction(int postId, int userId, String reactionType) async {
+  Future<void> createPostReaction(
+    int postId,
+    int userId,
+    String reactionType,
+  ) async {
     final postRef = _db.collection('posts').doc('$postId');
     final reactionId = _generateId();
     final reaction = {
@@ -318,12 +410,12 @@ class FirestoreDataService {
       'reaction_type': reactionType,
       'created_at': DateTime.now().toUtc().toIso8601String(),
     };
-    
+
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(postRef);
       if (!snapshot.exists) return;
       List reactions = List.from(snapshot.data()?['reactions'] ?? []);
-      
+
       // Remove existing reaction if any
       final existingIndex = reactions.indexWhere((r) => r['user_id'] == userId);
       String? oldType;
@@ -332,20 +424,19 @@ class FirestoreDataService {
         reactions.removeAt(existingIndex);
       }
       reactions.add(reaction);
-      
-      Map<String, dynamic> summary = Map<String, dynamic>.from(snapshot.data()?['reaction_summary'] ?? {
-        'like_count': 0,
-        'dislike_count': 0,
-        'heart_count': 0,
-      });
-      
+
+      Map<String, dynamic> summary = Map<String, dynamic>.from(
+        snapshot.data()?['reaction_summary'] ??
+            {'like_count': 0, 'dislike_count': 0, 'heart_count': 0},
+      );
+
       if (oldType == 'Like') {
         summary['like_count'] = (summary['like_count'] as int) - 1;
       }
       if (reactionType == 'Like') {
         summary['like_count'] = (summary['like_count'] as int) + 1;
       }
-      
+
       transaction.update(postRef, {
         'reactions': reactions,
         'reaction_summary': summary,
@@ -359,23 +450,22 @@ class FirestoreDataService {
       final snapshot = await transaction.get(postRef);
       if (!snapshot.exists) return;
       List reactions = List.from(snapshot.data()?['reactions'] ?? []);
-      
+
       final existingIndex = reactions.indexWhere((r) => r['user_id'] == userId);
       if (existingIndex < 0) return;
-      
+
       final oldType = reactions[existingIndex]['reaction_type'];
       reactions.removeAt(existingIndex);
-      
-      Map<String, dynamic> summary = Map<String, dynamic>.from(snapshot.data()?['reaction_summary'] ?? {
-        'like_count': 0,
-        'dislike_count': 0,
-        'heart_count': 0,
-      });
-      
+
+      Map<String, dynamic> summary = Map<String, dynamic>.from(
+        snapshot.data()?['reaction_summary'] ??
+            {'like_count': 0, 'dislike_count': 0, 'heart_count': 0},
+      );
+
       if (oldType == 'Like') {
         summary['like_count'] = (summary['like_count'] as int) - 1;
       }
-      
+
       transaction.update(postRef, {
         'reactions': reactions,
         'reaction_summary': summary,
@@ -386,14 +476,35 @@ class FirestoreDataService {
   Future<void> createPostComment(int postId, int userId, String content) async {
     final postRef = _db.collection('posts').doc('$postId');
     final commentId = _generateId();
+
+    // Fetch user name at write-time so comments display correctly immediately
+    Map<String, dynamic>? userInfo;
+    try {
+      final userData = await _getUserDataById(userId);
+      if (userData != null) {
+        final avatar =
+            userData['profileImageUrl'] ??
+            userData['profile_image_url'] ??
+            userData['avatar_url'] ??
+            '';
+        userInfo = {
+          'first_name': userData['first_name'] ?? userData['firstName'] ?? '',
+          'last_name': userData['last_name'] ?? userData['lastName'] ?? '',
+          'user_email': userData['user_email'] ?? userData['email'] ?? '',
+          'avatar_url': avatar,
+        };
+      }
+    } catch (_) {}
+
     final comment = {
       'comment_id': commentId,
       'post_id': postId,
       'user_id': userId,
       'comment_content': content,
       'created_at': DateTime.now().toUtc().toIso8601String(),
+      if (userInfo != null) 'user_info': userInfo,
     };
-    
+
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(postRef);
       if (!snapshot.exists) return;
@@ -403,9 +514,34 @@ class FirestoreDataService {
     });
   }
 
-  Future<void> createChildComment(int postId, int parentCommentId, int userId, String content) async {
+  Future<void> createChildComment(
+    int postId,
+    int parentCommentId,
+    int userId,
+    String content,
+  ) async {
     final postRef = _db.collection('posts').doc('$postId');
     final commentId = _generateId();
+
+    // Fetch user name at write-time so replies display correctly immediately
+    Map<String, dynamic>? userInfo;
+    try {
+      final userData = await _getUserDataById(userId);
+      if (userData != null) {
+        final avatar =
+            userData['profileImageUrl'] ??
+            userData['profile_image_url'] ??
+            userData['avatar_url'] ??
+            '';
+        userInfo = {
+          'first_name': userData['first_name'] ?? userData['firstName'] ?? '',
+          'last_name': userData['last_name'] ?? userData['lastName'] ?? '',
+          'user_email': userData['user_email'] ?? userData['email'] ?? '',
+          'avatar_url': avatar,
+        };
+      }
+    } catch (_) {}
+
     final comment = {
       'comment_id': commentId,
       'post_id': postId,
@@ -413,15 +549,16 @@ class FirestoreDataService {
       'parent_comment_id': parentCommentId,
       'comment_content': content,
       'created_at': DateTime.now().toUtc().toIso8601String(),
+      if (userInfo != null) 'user_info': userInfo,
     };
-    
+
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(postRef);
       if (!snapshot.exists) return;
       List comments = snapshot.data()?['comments'] ?? [];
-      
+
       // If backend nests comments directly in the json, we would find parent and append to childComments.
-      // But standard relation just adds to root with parent_comment_id. 
+      // But standard relation just adds to root with parent_comment_id.
       // The UI mapping doesn't auto nest unless we nest it here or ActivePostComment.fromJson does it (it doesn't, it looks for 'child_comments').
       // Let's nest it inside the parent comment's 'child_comments' array for correct UI rendering from ActivePostComment.fromJson.
       bool added = false;
@@ -434,28 +571,28 @@ class FirestoreDataService {
           break;
         }
       }
-      
+
       if (!added) {
         // Fallback to top level if parent not found
         comments.add(comment);
       }
-      
+
       transaction.update(postRef, {'comments': comments});
     });
   }
 
   Future<void> likeComment(int postId, int commentId, int userId) async {
     final postRef = _db.collection('posts').doc('$postId');
-    
+
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(postRef);
       if (!snapshot.exists) return;
       List comments = List.from(snapshot.data()?['comments'] ?? []);
-      
+
       bool updated = false;
       for (var i = 0; i < comments.length; i++) {
         Map<String, dynamic> comment = Map<String, dynamic>.from(comments[i]);
-        
+
         if (comment['comment_id'] == commentId) {
           List likes = List.from(comment['likes'] ?? []);
           if (likes.contains(userId)) {
@@ -468,12 +605,14 @@ class FirestoreDataService {
           updated = true;
           break;
         }
-        
+
         // Also check children
         List childComments = List.from(comment['child_comments'] ?? []);
         bool childUpdated = false;
         for (var j = 0; j < childComments.length; j++) {
-          Map<String, dynamic> child = Map<String, dynamic>.from(childComments[j]);
+          Map<String, dynamic> child = Map<String, dynamic>.from(
+            childComments[j],
+          );
           if (child['comment_id'] == commentId) {
             List likes = List.from(child['likes'] ?? []);
             if (likes.contains(userId)) {
@@ -487,7 +626,7 @@ class FirestoreDataService {
             break;
           }
         }
-        
+
         if (childUpdated) {
           comment['child_comments'] = childComments;
           comments[i] = comment;
@@ -495,7 +634,7 @@ class FirestoreDataService {
           break;
         }
       }
-      
+
       if (updated) {
         transaction.update(postRef, {'comments': comments});
       }
@@ -519,7 +658,13 @@ class FirestoreDataService {
     await _db.collection('saved_posts').doc('$recordId').delete();
   }
 
-  Future<void> createPostRepost(int postId, int userId, String description, int createdBy, {Map<String, dynamic>? userInfo}) async {
+  Future<void> createPostRepost(
+    int postId,
+    int userId,
+    String description,
+    int createdBy, {
+    Map<String, dynamic>? userInfo,
+  }) async {
     final postRef = _db.collection('posts').doc('$postId');
     final repostId = _generateId();
     final repost = {
@@ -531,15 +676,15 @@ class FirestoreDataService {
       'created_at': DateTime.now().toUtc().toIso8601String(),
       if (userInfo != null) 'repost_user_detail': userInfo,
     };
-    
+
     await _db.runTransaction((transaction) async {
       final snapshot = await transaction.get(postRef);
       if (!snapshot.exists) return;
       List reposts = snapshot.data()?['reposts'] ?? [];
       reposts.add(repost);
-      
+
       int repostCount = snapshot.data()?['repost_count'] ?? 0;
-      
+
       transaction.update(postRef, {
         'reposts': reposts,
         'repost_count': repostCount + 1,
@@ -554,19 +699,18 @@ class FirestoreDataService {
       final snapshot = await transaction.get(postRef);
       if (!snapshot.exists) return;
       final data = snapshot.data()!;
-      final pollCount = data['case_poll_count'] ?? {
-        'owner_count': 0,
-        'defendant_count': 0,
-        'total_count': 0,
-      };
-      
+      final pollCount =
+          data['case_poll_count'] ??
+          {'owner_count': 0, 'defendant_count': 0, 'total_count': 0};
+
       if (side == 'Y' || side == 'owner') {
         pollCount['owner_count'] = (pollCount['owner_count'] as int) + 1;
       } else {
-        pollCount['defendant_count'] = (pollCount['defendant_count'] as int) + 1;
+        pollCount['defendant_count'] =
+            (pollCount['defendant_count'] as int) + 1;
       }
       pollCount['total_count'] = (pollCount['total_count'] as int) + 1;
-      
+
       transaction.update(postRef, {'case_poll_count': pollCount});
     });
   }
@@ -578,8 +722,12 @@ class FirestoreDataService {
         .where('status', isEqualTo: 'PENDING_DEFENDANT_APPROVAL')
         .get();
 
-    final casesList = query.docs.map((doc) => PendingCase.fromJson(doc.data())).toList();
-    casesList.sort((a, b) => (b.caseCreatedAt ?? '').compareTo(a.caseCreatedAt ?? ''));
+    final casesList = query.docs
+        .map((doc) => PendingCase.fromJson(doc.data()))
+        .toList();
+    casesList.sort(
+      (a, b) => (b.caseCreatedAt ?? '').compareTo(a.caseCreatedAt ?? ''),
+    );
 
     // Enrich with creator user info if not already present
     final creatorIds = <int>{};
@@ -621,10 +769,10 @@ class FirestoreDataService {
     final caseId = _generateId();
     data['case_id'] = caseId;
     data['case_created_at'] = DateTime.now().toUtc().toIso8601String();
-    
+
     bool isTagged = data['tag_defendent_user_id'] != null;
     data['status'] = isTagged ? 'PENDING_DEFENDANT_APPROVAL' : 'ACTIVE';
-    
+
     // Write to cases
     await _db.collection('cases').doc('$caseId').set(data);
 
@@ -632,7 +780,9 @@ class FirestoreDataService {
     final pendingData = Map<String, dynamic>.from(data);
     if (data['user_id'] != null) {
       final creatorInfo = await UserCacheService().getUser(
-        data['user_id'] is int ? data['user_id'] : int.tryParse('${data['user_id']}') ?? 0,
+        data['user_id'] is int
+            ? data['user_id']
+            : int.tryParse('${data['user_id']}') ?? 0,
       );
       if (creatorInfo != null) {
         pendingData['creator_first_name'] = creatorInfo.firstName;
@@ -650,7 +800,8 @@ class FirestoreDataService {
         'user_id': data['tag_defendent_user_id'],
         'notification_type': 'P',
         'view_type': 'RN',
-        'notification_detail': 'You have been invited to contribute to a post. Tap to add your opinion.',
+        'notification_detail':
+            'You have been invited to contribute to a post. Tap to add your opinion.',
         'created_at': DateTime.now().toUtc().toIso8601String(),
         'notification_meta': '{"case_id": $caseId}',
         'is_read': 0,
@@ -660,19 +811,23 @@ class FirestoreDataService {
 
     // If case is public, publish as a post!
     if (data['case_view_status_id'] == 6) {
-      final userQuery = await _db.collection('users').where('user_id', isEqualTo: data['user_id']).get();
+      final userData = await _getUserDataById(data['user_id']);
       Map<String, dynamic>? userInfo;
-      if (userQuery.docs.isNotEmpty) {
-        final userData = userQuery.docs.first.data();
+      if (userData != null) {
+        final avatar =
+            userData['profileImageUrl'] ??
+            userData['profile_image_url'] ??
+            userData['avatar_url'] ??
+            '';
         userInfo = {
           'first_name': userData['firstName'] ?? userData['first_name'] ?? '',
           'last_name': userData['lastName'] ?? userData['last_name'] ?? '',
           'user_email': userData['email'] ?? userData['user_email'] ?? '',
-          'avatar_url': userData['profileImageUrl'] ?? userData['profile_image_url'] ?? '',
+          'avatar_url': avatar,
           'application_meta': {
             'meta_id': 0,
             'meta_type_id': 1,
-            'meta_url': userData['profileImageUrl'] ?? userData['profile_image_url'] ?? '',
+            'meta_url': avatar,
             'is_active': 'Y',
           },
         };
@@ -680,10 +835,13 @@ class FirestoreDataService {
 
       List<Map<String, dynamic>> defendantDetails = [];
       if (data['tag_defendent_user_id'] != null) {
-        final defQuery = await _db.collection('users').where('user_id', isEqualTo: data['tag_defendent_user_id']).get();
-        if (defQuery.docs.isNotEmpty) {
-          final defData = defQuery.docs.first.data();
-          final defAvatar = defData['profileImageUrl'] ?? defData['profile_image_url'] ?? '';
+        final defData = await _getUserDataById(data['tag_defendent_user_id']);
+        if (defData != null) {
+          final defAvatar =
+              defData['profileImageUrl'] ??
+              defData['profile_image_url'] ??
+              defData['avatar_url'] ??
+              '';
           defendantDetails.add({
             'defendent_id': data['tag_defendent_user_id'],
             'user_info': {
@@ -691,7 +849,7 @@ class FirestoreDataService {
               'last_name': defData['lastName'] ?? defData['last_name'] ?? '',
               'user_email': defData['email'] ?? defData['user_email'] ?? '',
               'avatar_url': defAvatar,
-            }
+            },
           });
         }
       }
@@ -746,17 +904,59 @@ class FirestoreDataService {
   Future<Map<String, dynamic>?> _getUserDataById(dynamic userId) async {
     if (userId == null) return null;
     final intId = userId is int ? userId : int.tryParse('$userId');
-    
+
     if (intId != null) {
-      final q1 = await _db.collection('users').where('user_id', isEqualTo: intId).get();
+      final q1 = await _db
+          .collection('users')
+          .where('user_id', isEqualTo: intId)
+          .get();
       if (q1.docs.isNotEmpty) return q1.docs.first.data();
+
+      final q1Camel = await _db
+          .collection('users')
+          .where('userId', isEqualTo: intId)
+          .get();
+      if (q1Camel.docs.isNotEmpty) return q1Camel.docs.first.data();
     }
-    
-    final q2 = await _db.collection('users').where('user_id', isEqualTo: '$userId').get();
+
+    final q2 = await _db
+        .collection('users')
+        .where('user_id', isEqualTo: '$userId')
+        .get();
     if (q2.docs.isNotEmpty) return q2.docs.first.data();
-    
+
+    final q2Camel = await _db
+        .collection('users')
+        .where('userId', isEqualTo: '$userId')
+        .get();
+    if (q2Camel.docs.isNotEmpty) return q2Camel.docs.first.data();
+
+    final q4 = await _db
+        .collection('users')
+        .where('firebase_uid', isEqualTo: '$userId')
+        .get();
+    if (q4.docs.isNotEmpty) return q4.docs.first.data();
+
     final doc = await _db.collection('users').doc('$userId').get();
-    if (doc.exists) return doc.data();
+    if (doc.exists && doc.data() != null) return doc.data();
+
+    // Fallback collection scan — also handles legacy uid.hashCode stored as created_by
+    try {
+      final all = await _db.collection('users').get();
+      for (final d in all.docs) {
+        final data = d.data();
+        final raw = data['userId'] ?? data['user_id'];
+        final docId = raw is int ? raw : int.tryParse('$raw');
+        if (docId != null && intId != null && docId == intId) return data;
+        // Also check if firebase_uid.hashCode matches (legacy uid.hashCode stored as created_by)
+        final firebaseUid = data['firebase_uid'] ?? d.id;
+        if (intId != null &&
+            firebaseUid is String &&
+            firebaseUid.hashCode == intId) {
+          return data;
+        }
+      }
+    } catch (_) {}
 
     return null;
   }
@@ -770,23 +970,35 @@ class FirestoreDataService {
   }) async {
     final caseDoc = await _db.collection('cases').doc('$caseId').get();
     final data = caseDoc.exists ? caseDoc.data()! : <String, dynamic>{};
-    
+
     data['status'] = 'ACTIVE';
     data['defendant_resolution'] = caseResolution;
-    
-    await _db.collection('cases').doc('$caseId').update({'status': 'ACTIVE', 'defendant_resolution': caseResolution});
-    await _db.collection('pending_cases').doc('$caseId').update({'status': 'ACTIVE', 'defendant_resolution': caseResolution});
 
-    final notifs = await _db.collection('notifications').where('case_id', isEqualTo: caseId).get();
+    await _db.collection('cases').doc('$caseId').update({
+      'status': 'ACTIVE',
+      'defendant_resolution': caseResolution,
+    });
+    await _db.collection('pending_cases').doc('$caseId').update({
+      'status': 'ACTIVE',
+      'defendant_resolution': caseResolution,
+    });
+
+    final notifs = await _db
+        .collection('notifications')
+        .where('case_id', isEqualTo: caseId)
+        .get();
     for (var doc in notifs.docs) {
       await doc.reference.update({'is_read': 1});
     }
 
     final creatorId = data['user_id'];
     final userData = await _getUserDataById(creatorId);
-    final creatorFirstName = userData?['firstName'] ?? userData?['first_name'] ?? '';
-    final creatorLastName = userData?['lastName'] ?? userData?['last_name'] ?? '';
-    final creatorAvatar = userData?['profileImageUrl'] ?? userData?['profile_image_url'] ?? '';
+    final creatorFirstName =
+        userData?['firstName'] ?? userData?['first_name'] ?? '';
+    final creatorLastName =
+        userData?['lastName'] ?? userData?['last_name'] ?? '';
+    final creatorAvatar =
+        userData?['profileImageUrl'] ?? userData?['profile_image_url'] ?? '';
 
     final userInfo = {
       'first_name': creatorFirstName,
@@ -804,7 +1016,8 @@ class FirestoreDataService {
     final defData = await _getUserDataById(defendentId);
     final defFirstName = defData?['firstName'] ?? defData?['first_name'] ?? '';
     final defLastName = defData?['lastName'] ?? defData?['last_name'] ?? '';
-    final defAvatar = defData?['profileImageUrl'] ?? defData?['profile_image_url'] ?? '';
+    final defAvatar =
+        defData?['profileImageUrl'] ?? defData?['profile_image_url'] ?? '';
 
     final Map<String, dynamic> defMeta = {
       'meta_id': metaId ?? caseId,
@@ -826,10 +1039,14 @@ class FirestoreDataService {
         if (metaUrl != null && metaUrl.isNotEmpty) 'meta': defMeta,
         if (metaUrl != null && metaUrl.isNotEmpty) 'meta_list': [defMeta],
         if (metaUrl != null && metaUrl.isNotEmpty) 'application_meta': defMeta,
-      }
+      },
     ];
 
-    final primaryMetaUrl = data['meta_url'] ?? (data['application_meta'] is Map ? data['application_meta']['meta_url'] : '');
+    final primaryMetaUrl =
+        data['meta_url'] ??
+        (data['application_meta'] is Map
+            ? data['application_meta']['meta_url']
+            : '');
     final Map<String, dynamic> primaryMeta = {
       'meta_id': data['meta_id'] ?? caseId,
       'meta_type_id': data['meta_type_id'] ?? 1,
@@ -885,7 +1102,33 @@ class FirestoreDataService {
   }
 
   Future<void> updateUserProfile(String uid, Map<String, dynamic> data) async {
-    await _db.collection('users').doc(uid).update(data);
+    final Map<String, dynamic> payload = Map<String, dynamic>.from(data);
+    if (payload.containsKey('firstName') &&
+        !payload.containsKey('first_name')) {
+      payload['first_name'] = payload['firstName'];
+    }
+    if (payload.containsKey('lastName') && !payload.containsKey('last_name')) {
+      payload['last_name'] = payload['lastName'];
+    }
+    if (payload.containsKey('email') && !payload.containsKey('user_email')) {
+      payload['user_email'] = payload['email'];
+    }
+    if (payload.containsKey('profileImageUrl')) {
+      payload['profile_image_url'] ??= payload['profileImageUrl'];
+      payload['avatar_url'] ??= payload['profileImageUrl'];
+    }
+    await _db.collection('users').doc(uid).update(payload);
+    try {
+      final doc = await _db.collection('users').doc(uid).get();
+      if (doc.exists && doc.data() != null) {
+        final rawId = doc.data()?['user_id'] ?? doc.data()?['userId'];
+        final intId = rawId is int ? rawId : int.tryParse('$rawId');
+        if (intId != null) {
+          UserCacheService().invalidate(intId);
+        }
+      }
+    } catch (_) {}
+    UserCacheService().invalidateByFirebaseUid(uid);
   }
 
   Future<List<UserOption>> getAllUsers() async {
@@ -895,7 +1138,9 @@ class FirestoreDataService {
     return query.docs.map((doc) {
       final data = doc.data();
       final userIdVal = data['user_id'] ?? data['userId'];
-      final userId = userIdVal is int ? userIdVal : int.tryParse('$userIdVal') ?? doc.id.hashCode;
+      final userId = userIdVal is int
+          ? userIdVal
+          : int.tryParse('$userIdVal') ?? doc.id.hashCode;
       return UserOption(
         userId: userId,
         firstName: data['first_name'] ?? data['firstName'] ?? '',
@@ -915,8 +1160,12 @@ class FirestoreDataService {
         final isBroadcast = data['is_broadcast'] == true;
         return isBroadcast || targetUid == 0 || targetUid == userId;
       }).toList();
-      final notifications = docs.map((doc) => AppNotificationItem.fromJson(doc.data())).toList();
-      notifications.sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+      final notifications = docs
+          .map((doc) => AppNotificationItem.fromJson(doc.data()))
+          .toList();
+      notifications.sort(
+        (a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''),
+      );
       return notifications;
     } catch (_) {
       return [];
@@ -969,7 +1218,11 @@ class FirestoreDataService {
     });
   }
 
-  Future<void> sendWarningToUser(int userId, String alertNote, int attachedMetaId) async {
+  Future<void> sendWarningToUser(
+    int userId,
+    String alertNote,
+    int attachedMetaId,
+  ) async {
     final id = _generateId();
     final nowIso = DateTime.now().toUtc().toIso8601String();
 
@@ -1001,7 +1254,10 @@ class FirestoreDataService {
 
   Future<List<Map<String, dynamic>>> getAnnouncements() async {
     try {
-      final query = await _db.collection('announcements').orderBy('created_at', descending: true).get();
+      final query = await _db
+          .collection('announcements')
+          .orderBy('created_at', descending: true)
+          .get();
       return query.docs.map((doc) => doc.data()).toList();
     } catch (_) {
       return [];
@@ -1009,9 +1265,16 @@ class FirestoreDataService {
   }
 
   // --- Parameters ---
-  Future<List<GeneralParameterOption>> getParametersByHeader(String header) async {
-    final query = await _db.collection('parameters').where('param_header', isEqualTo: header).get();
-    return query.docs.map((doc) => GeneralParameterOption.fromJson(doc.data())).toList();
+  Future<List<GeneralParameterOption>> getParametersByHeader(
+    String header,
+  ) async {
+    final query = await _db
+        .collection('parameters')
+        .where('param_header', isEqualTo: header)
+        .get();
+    return query.docs
+        .map((doc) => GeneralParameterOption.fromJson(doc.data()))
+        .toList();
   }
 
   // --- Reels (Highlights) ---
@@ -1022,7 +1285,10 @@ class FirestoreDataService {
   }) async {
     final reelId = _generateId();
     final nowIso = DateTime.now().toUtc().toIso8601String();
-    final expireIso = DateTime.now().add(const Duration(hours: 24)).toUtc().toIso8601String();
+    final expireIso = DateTime.now()
+        .add(const Duration(hours: 24))
+        .toUtc()
+        .toIso8601String();
 
     // Fetch media details
     Map<String, dynamic>? applicationMeta;
@@ -1038,22 +1304,25 @@ class FirestoreDataService {
       };
     }
 
-    // Fetch creator details
+    // Fetch creator details using full fallback strategy (handles uid.hashCode, all field aliases)
     Map<String, dynamic>? creatorInfo;
-    final userQuery = await _db.collection('users').where('user_id', isEqualTo: userId).get();
-    if (userQuery.docs.isNotEmpty) {
-      final userData = userQuery.docs.first.data();
+    final userData = await _getUserDataById(userId);
+    if (userData != null) {
       creatorInfo = {
         'user_id': userId,
-        'first_name': userData['firstName'] ?? userData['first_name'] ?? '',
-        'last_name': userData['lastName'] ?? userData['last_name'] ?? '',
-        'user_email': userData['email'] ?? userData['user_email'] ?? '',
+        'first_name': userData['first_name'] ?? userData['firstName'] ?? '',
+        'last_name': userData['last_name'] ?? userData['lastName'] ?? '',
+        'user_email': userData['user_email'] ?? userData['email'] ?? '',
         'application_meta': {
           'meta_id': 0,
           'meta_type_id': 1,
-          'meta_url': userData['profileImageUrl'] ?? userData['profile_image_url'] ?? '',
+          'meta_url':
+              userData['profileImageUrl'] ??
+              userData['profile_image_url'] ??
+              userData['avatar_url'] ??
+              '',
           'is_active': 'Y',
-        }
+        },
       };
     }
 
@@ -1075,41 +1344,88 @@ class FirestoreDataService {
   }
 
   Future<List<ActiveReel>> getAllActiveReels() async {
-    final query = await _db.collection('reels')
+    final query = await _db
+        .collection('reels')
         .where('is_active', isEqualTo: 'Y')
         .get();
-        
+
     final now = DateTime.now().toUtc();
     final reels = <ActiveReel>[];
-    
+
     for (var doc in query.docs) {
       final data = doc.data();
       final expireStr = data['reel_expire_date'] as String?;
       if (expireStr != null) {
         final expire = DateTime.tryParse(expireStr);
         if (expire != null && now.isAfter(expire)) {
-          // Soft-expire: set active to N, but don't show it now
           await doc.reference.update({'is_active': 'N'});
           continue;
         }
       }
-      reels.add(ActiveReel.fromJson(data));
+      // Enrich missing/empty user_info at read-time
+      final enrichedData = await _enrichReelData(data);
+      reels.add(ActiveReel.fromJson(enrichedData));
     }
-    
+
     reels.sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
     return reels;
   }
 
+  /// Fills in missing user_info on a reel's raw Firestore map.
+  Future<Map<String, dynamic>> _enrichReelData(
+    Map<String, dynamic> data,
+  ) async {
+    final existingUserInfo = data['user_info'];
+    final existingFirstName =
+        (existingUserInfo is Map
+            ? existingUserInfo['first_name'] ?? existingUserInfo['firstName']
+            : null) ??
+        '';
+    if (existingFirstName.toString().trim().isNotEmpty)
+      return data; // already has a name
+
+    final rawUserId = data['user_id'] ?? data['created_by'];
+    if (rawUserId == null) return data;
+
+    try {
+      final userData = await _getUserDataById(rawUserId);
+      if (userData == null) return data;
+      final avatar =
+          userData['profileImageUrl'] ??
+          userData['profile_image_url'] ??
+          userData['avatar_url'] ??
+          '';
+      final enriched = Map<String, dynamic>.from(data);
+      enriched['user_info'] = {
+        'user_id': rawUserId,
+        'first_name': userData['first_name'] ?? userData['firstName'] ?? '',
+        'last_name': userData['last_name'] ?? userData['lastName'] ?? '',
+        'user_email': userData['user_email'] ?? userData['email'] ?? '',
+        'application_meta': {
+          'meta_id': 0,
+          'meta_type_id': 1,
+          'meta_url': avatar,
+          'is_active': 'Y',
+        },
+      };
+      return enriched;
+    } catch (_) {
+      return data;
+    }
+  }
+
   Future<ActiveReel?> getUserReel(int userId) async {
-    final query = await _db.collection('reels')
-        .where('user_id', isEqualTo: userId)
-        .where('is_active', isEqualTo: 'Y')
-        .get();
-        
-    if (query.docs.isEmpty) return null;
-    final list = query.docs.map((doc) => ActiveReel.fromJson(doc.data())).toList();
-    list.sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
-    return list.first;
+    try {
+      final matchingIds = await getAllMatchingUserIds(userId);
+      final allReels = await getAllActiveReels();
+      for (final reel in allReels) {
+        if ((reel.userId != null && matchingIds.contains(reel.userId)) ||
+            (reel.createdBy != null && matchingIds.contains(reel.createdBy))) {
+          return reel;
+        }
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> deleteUserReel(int reelId) async {
@@ -1117,13 +1433,18 @@ class FirestoreDataService {
   }
 
   // --- Admin Functions ---
-  
+
   Future<List<UserOption>> getUsersByRole(String role) async {
-    final query = await _db.collection('users').where('role', isEqualTo: role).get();
+    final query = await _db
+        .collection('users')
+        .where('role', isEqualTo: role)
+        .get();
     return query.docs.map((doc) {
       final data = doc.data();
       final userIdVal = data['user_id'] ?? data['userId'];
-      final userId = userIdVal is int ? userIdVal : int.tryParse('$userIdVal') ?? doc.id.hashCode;
+      final userId = userIdVal is int
+          ? userIdVal
+          : int.tryParse('$userIdVal') ?? doc.id.hashCode;
       return UserOption(
         userId: userId,
         firstName: data['first_name'] ?? data['firstName'] ?? '',
@@ -1139,7 +1460,7 @@ class FirestoreDataService {
       'block_reason': reason,
       'blocked_at': DateTime.now().toUtc().toIso8601String(),
     });
-    
+
     // Also record in blocked_users collection
     final recordId = _generateId();
     await _db.collection('blocked_users').doc('$recordId').set({
@@ -1158,8 +1479,6 @@ class FirestoreDataService {
     });
   }
 
-
-
   Future<void> deletePost(int postId) async {
     // Soft delete or hard delete? Let's do hard delete or soft delete. We'll do soft delete by is_active for safety.
     // Or hard delete. Let's hard delete from posts, and also cases.
@@ -1169,9 +1488,7 @@ class FirestoreDataService {
   }
 
   Future<void> hidePost(int postId, bool hidden) async {
-    await _db.collection('posts').doc('$postId').update({
-      'is_hidden': hidden,
-    });
+    await _db.collection('posts').doc('$postId').update({'is_hidden': hidden});
   }
 
   Future<void> hideVotingResults(int postId, bool hidden) async {
@@ -1186,22 +1503,27 @@ class FirestoreDataService {
       final snapshot = await transaction.get(postRef);
       if (!snapshot.exists) return;
       List comments = List.from(snapshot.data()?['comments'] ?? []);
-      
+
       comments.removeWhere((c) => c['comment_id'] == commentId);
       for (var c in comments) {
         if (c['child_comments'] != null) {
           List childComments = List.from(c['child_comments']);
-          childComments.removeWhere((child) => child['comment_id'] == commentId);
+          childComments.removeWhere(
+            (child) => child['comment_id'] == commentId,
+          );
           c['child_comments'] = childComments;
         }
       }
-      
+
       transaction.update(postRef, {'comments': comments});
     });
   }
 
   Future<List<Map<String, dynamic>>> getPostReports() async {
-    final query = await _db.collection('post_reports').orderBy('created_at', descending: true).get();
+    final query = await _db
+        .collection('post_reports')
+        .orderBy('created_at', descending: true)
+        .get();
     return query.docs.map((doc) => doc.data()).toList();
   }
 
@@ -1222,7 +1544,7 @@ class FirestoreDataService {
       'report_status': reportStatus,
       'created_at': DateTime.now().toUtc().toIso8601String(),
     });
-    
+
     // Also increment report_count on post
     final postRef = _db.collection('posts').doc('$postId');
     await _db.runTransaction((transaction) async {
@@ -1236,43 +1558,178 @@ class FirestoreDataService {
   Future<Map<String, int>> getDashboardStats() async {
     int activeUsers = 0;
     int totalUsers = 0;
-    
-    final usersQuery = await _db.collection('users').where('role', isEqualTo: 'user').get();
+
+    final usersQuery = await _db
+        .collection('users')
+        .where('role', isEqualTo: 'user')
+        .get();
     totalUsers = usersQuery.docs.length;
     for (var doc in usersQuery.docs) {
       final data = doc.data();
-      if (data['is_active'] != 'N') { // default is active if missing
+      if (data['is_active'] != 'N') {
+        // default is active if missing
         activeUsers++;
       }
     }
-    
-    return {
-      'total_users': totalUsers,
-      'active_users': activeUsers,
-    };
+
+    return {'total_users': totalUsers, 'active_users': activeUsers};
   }
 
   Future<List<Map<String, dynamic>>> getUserGrowth() async {
-    final usersQuery = await _db.collection('users').where('role', isEqualTo: 'user').get();
-    List<Map<String, dynamic>> users = usersQuery.docs.map((doc) => doc.data()).toList();
+    final usersQuery = await _db
+        .collection('users')
+        .where('role', isEqualTo: 'user')
+        .get();
+    List<Map<String, dynamic>> users = usersQuery.docs
+        .map((doc) => doc.data())
+        .toList();
     return users;
   }
 
   // --- Follow System & Jury Gating ---
-  Future<bool> isFollowing({required int followerId, required int followingId}) async {
-    final query = await _db.collection('follows')
-        .where('follower_id', isEqualTo: followerId)
-        .where('following_id', isEqualTo: followingId)
-        .limit(1)
-        .get();
-    return query.docs.isNotEmpty;
+  Future<List<DocumentSnapshot<Map<String, dynamic>>>>
+  _queryFollowDocsByFollowingId(int userId) async {
+    final matches = await getAllMatchingUserIds(userId);
+    final List<DocumentSnapshot<Map<String, dynamic>>> allDocs = [];
+    final Set<String> seenDocIds = {};
+
+    for (final mId in matches) {
+      try {
+        final qInt = await _db
+            .collection('follows')
+            .where('following_id', isEqualTo: mId)
+            .get();
+        for (final doc in qInt.docs) {
+          if (seenDocIds.add(doc.id)) allDocs.add(doc);
+        }
+        final qStr = await _db
+            .collection('follows')
+            .where('following_id', isEqualTo: '$mId')
+            .get();
+        for (final doc in qStr.docs) {
+          if (seenDocIds.add(doc.id)) allDocs.add(doc);
+        }
+      } catch (e) {
+        debugPrint('Error querying follows for following_id $mId: $e');
+      }
+    }
+
+    if (allDocs.isEmpty) {
+      try {
+        final qAll = await _db.collection('follows').get();
+        for (final doc in qAll.docs) {
+          final data = doc.data();
+          final rawFg = data['following_id'];
+          final fgId = rawFg is int ? rawFg : int.tryParse('$rawFg');
+          final bool matchesTarget =
+              (fgId != null && matches.contains(fgId)) ||
+              (rawFg != null &&
+                  (matches.contains(rawFg.toString().hashCode) ||
+                      matches.contains(rawFg.toString().hashCode.abs())));
+          if (matchesTarget && seenDocIds.add(doc.id)) {
+            allDocs.add(doc);
+          }
+        }
+      } catch (e) {
+        debugPrint('Fallback follows collection scan failed: $e');
+      }
+    }
+
+    return allDocs;
   }
 
-  Future<void> followUser({required int followerId, required int followingId}) async {
+  Future<List<DocumentSnapshot<Map<String, dynamic>>>>
+  _queryFollowDocsByFollowerId(int userId) async {
+    final matches = await getAllMatchingUserIds(userId);
+    final List<DocumentSnapshot<Map<String, dynamic>>> allDocs = [];
+    final Set<String> seenDocIds = {};
+
+    for (final mId in matches) {
+      try {
+        final qInt = await _db
+            .collection('follows')
+            .where('follower_id', isEqualTo: mId)
+            .get();
+        for (final doc in qInt.docs) {
+          if (seenDocIds.add(doc.id)) allDocs.add(doc);
+        }
+        final qStr = await _db
+            .collection('follows')
+            .where('follower_id', isEqualTo: '$mId')
+            .get();
+        for (final doc in qStr.docs) {
+          if (seenDocIds.add(doc.id)) allDocs.add(doc);
+        }
+      } catch (e) {
+        debugPrint('Error querying follows for follower_id $mId: $e');
+      }
+    }
+
+    if (allDocs.isEmpty) {
+      try {
+        final qAll = await _db.collection('follows').get();
+        for (final doc in qAll.docs) {
+          final data = doc.data();
+          final rawF = data['follower_id'];
+          final fId = rawF is int ? rawF : int.tryParse('$rawF');
+          final bool matchesTarget =
+              (fId != null && matches.contains(fId)) ||
+              (rawF != null &&
+                  (matches.contains(rawF.toString().hashCode) ||
+                      matches.contains(rawF.toString().hashCode.abs())));
+          if (matchesTarget && seenDocIds.add(doc.id)) {
+            allDocs.add(doc);
+          }
+        }
+      } catch (e) {
+        debugPrint('Fallback follows collection scan failed: $e');
+      }
+    }
+
+    return allDocs;
+  }
+
+  Future<bool> isFollowing({
+    required int followerId,
+    required int followingId,
+  }) async {
+    try {
+      final docs = await _queryFollowDocsByFollowerId(followerId);
+      final targetMatches = await getAllMatchingUserIds(followingId);
+
+      for (var doc in docs) {
+        final data = doc.data();
+        if (data == null) continue;
+        final rawFg = data['following_id'];
+        final fgId = rawFg is int ? rawFg : int.tryParse('$rawFg');
+
+        final fgMatch =
+            (fgId != null && targetMatches.contains(fgId)) ||
+            (rawFg != null &&
+                (targetMatches.contains(rawFg.toString().hashCode) ||
+                    targetMatches.contains(rawFg.toString().hashCode.abs())));
+
+        if (fgMatch) {
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in isFollowing: $e');
+    }
+    return false;
+  }
+
+  Future<void> followUser({
+    required int followerId,
+    required int followingId,
+  }) async {
     if (followerId == followingId) return;
-    final exists = await isFollowing(followerId: followerId, followingId: followingId);
+    final exists = await isFollowing(
+      followerId: followerId,
+      followingId: followingId,
+    );
     if (exists) return;
-    
+
     final followId = _generateId();
     await _db.collection('follows').doc('$followId').set({
       'follow_id': followId,
@@ -1282,83 +1739,189 @@ class FirestoreDataService {
     });
   }
 
-  Future<void> unfollowUser({required int followerId, required int followingId}) async {
-    final query = await _db.collection('follows')
-        .where('follower_id', isEqualTo: followerId)
-        .where('following_id', isEqualTo: followingId)
-        .get();
-        
-    for (var doc in query.docs) {
-      await doc.reference.delete();
+  Future<void> unfollowUser({
+    required int followerId,
+    required int followingId,
+  }) async {
+    try {
+      final docs = await _queryFollowDocsByFollowerId(followerId);
+      final targetMatches = await getAllMatchingUserIds(followingId);
+
+      for (var doc in docs) {
+        final data = doc.data();
+        if (data == null) continue;
+        final rawFg = data['following_id'];
+        final fgId = rawFg is int ? rawFg : int.tryParse('$rawFg');
+
+        final fgMatch =
+            (fgId != null && targetMatches.contains(fgId)) ||
+            (rawFg != null &&
+                (targetMatches.contains(rawFg.toString().hashCode) ||
+                    targetMatches.contains(rawFg.toString().hashCode.abs())));
+
+        if (fgMatch) {
+          await doc.reference.delete();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error in unfollowUser: $e');
     }
   }
 
-  Future<Map<String, dynamic>> getFollowStats(int userId, {int? currentUserId}) async {
-    int followersCount = 0;
-    int followingCount = 0;
-    bool isFollowingCurrent = false;
-    
-    final followersQuery = await _db.collection('follows')
-        .where('following_id', isEqualTo: userId)
-        .get();
-    followersCount = followersQuery.docs.length;
-    
-    if (currentUserId != null) {
-      for (var doc in followersQuery.docs) {
-        if (doc.data()['follower_id'] == currentUserId) {
-          isFollowingCurrent = true;
-          break;
-        }
+  Future<Map<String, dynamic>> getFollowStats(
+    int userId, {
+    int? currentUserId,
+  }) async {
+    try {
+      final followersList = await getFollowersList(userId);
+      final followingList = await getFollowingList(userId);
+
+      bool isFollowingCurrent = false;
+      if (currentUserId != null) {
+        isFollowingCurrent = await isFollowing(
+          followerId: currentUserId,
+          followingId: userId,
+        );
       }
+
+      return {
+        'followersCount': followersList.length,
+        'followingCount': followingList.length,
+        'isFollowingCurrent': isFollowingCurrent,
+      };
+    } catch (e, stack) {
+      debugPrint('Error getting follow stats for $userId: $e\n$stack');
+      return {
+        'followersCount': 0,
+        'followingCount': 0,
+        'isFollowingCurrent': false,
+      };
     }
-        
-    final followingQuery = await _db.collection('follows')
-        .where('follower_id', isEqualTo: userId)
-        .get();
-    followingCount = followingQuery.docs.length;
-    
-    return {
-      'followersCount': followersCount,
-      'followingCount': followingCount,
-      'isFollowingCurrent': isFollowingCurrent,
-    };
   }
 
   Future<List<Map<String, dynamic>>> getFollowersList(int userId) async {
-    final followsQuery = await _db.collection('follows').where('following_id', isEqualTo: userId).get();
-    final followerIds = followsQuery.docs.map((doc) => doc.data()['follower_id'] as int).toList();
-    
-    if (followerIds.isEmpty) return [];
-    
-    final users = await UserCacheService().batchGetUsers(followerIds);
-    return followerIds.where((id) => users.containsKey(id)).map((id) {
-      final user = users[id]!;
-      return {
-        'user_id': id,
-        'first_name': user.firstName,
-        'last_name': user.lastName,
-        'user_email': user.email,
-        'avatar_url': user.avatarUrl,
-      };
-    }).toList();
+    try {
+      final docs = await _queryFollowDocsByFollowingId(userId);
+      final followerRawValues = <dynamic>[];
+
+      for (var doc in docs) {
+        final data = doc.data();
+        if (data != null) {
+          final rawF = data['follower_id'];
+          if (rawF != null) {
+            followerRawValues.add(rawF);
+          }
+        }
+      }
+
+      if (followerRawValues.isEmpty) return [];
+
+      final List<Map<String, dynamic>> resultList = [];
+      final Set<dynamic> addedDedupKeys = {};
+
+      for (final rawF in followerRawValues) {
+        final userInfo = await UserCacheService().getUserDynamic(rawF);
+
+        final dedupKey = rawF is int ? rawF : '$rawF';
+        if (!addedDedupKeys.contains(dedupKey)) {
+          addedDedupKeys.add(dedupKey);
+
+          if (userInfo != null) {
+            final displayId = userInfo.userId > 0
+                ? userInfo.userId
+                : (rawF is int
+                      ? rawF
+                      : (int.tryParse('$rawF') ??
+                            rawF.toString().hashCode.abs()));
+            resultList.add({
+              'user_id': displayId,
+              'first_name': userInfo.firstName,
+              'last_name': userInfo.lastName,
+              'user_email': userInfo.email,
+              'avatar_url': userInfo.avatarUrl,
+            });
+          } else {
+            final fallbackId = rawF is int
+                ? rawF
+                : (int.tryParse('$rawF') ?? rawF.toString().hashCode.abs());
+            resultList.add({
+              'user_id': fallbackId,
+              'first_name': 'Unknown',
+              'last_name': 'User',
+              'user_email': '',
+              'avatar_url': '',
+            });
+          }
+        }
+      }
+
+      return resultList;
+    } catch (e, stack) {
+      debugPrint('Error getting followers list for user $userId: $e\n$stack');
+      return [];
+    }
   }
 
   Future<List<Map<String, dynamic>>> getFollowingList(int userId) async {
-    final followsQuery = await _db.collection('follows').where('follower_id', isEqualTo: userId).get();
-    final followingIds = followsQuery.docs.map((doc) => doc.data()['following_id'] as int).toList();
-    
-    if (followingIds.isEmpty) return [];
-    
-    final users = await UserCacheService().batchGetUsers(followingIds);
-    return followingIds.where((id) => users.containsKey(id)).map((id) {
-      final user = users[id]!;
-      return {
-        'user_id': id,
-        'first_name': user.firstName,
-        'last_name': user.lastName,
-        'user_email': user.email,
-        'avatar_url': user.avatarUrl,
-      };
-    }).toList();
+    try {
+      final docs = await _queryFollowDocsByFollowerId(userId);
+      final followingRawValues = <dynamic>[];
+
+      for (var doc in docs) {
+        final data = doc.data();
+        if (data != null) {
+          final rawFg = data['following_id'];
+          if (rawFg != null) {
+            followingRawValues.add(rawFg);
+          }
+        }
+      }
+
+      if (followingRawValues.isEmpty) return [];
+
+      final List<Map<String, dynamic>> resultList = [];
+      final Set<dynamic> addedDedupKeys = {};
+
+      for (final rawFg in followingRawValues) {
+        final userInfo = await UserCacheService().getUserDynamic(rawFg);
+
+        final dedupKey = rawFg is int ? rawFg : '$rawFg';
+        if (!addedDedupKeys.contains(dedupKey)) {
+          addedDedupKeys.add(dedupKey);
+
+          if (userInfo != null) {
+            final displayId = userInfo.userId > 0
+                ? userInfo.userId
+                : (rawFg is int
+                      ? rawFg
+                      : (int.tryParse('$rawFg') ??
+                            rawFg.toString().hashCode.abs()));
+            resultList.add({
+              'user_id': displayId,
+              'first_name': userInfo.firstName,
+              'last_name': userInfo.lastName,
+              'user_email': userInfo.email,
+              'avatar_url': userInfo.avatarUrl,
+            });
+          } else {
+            final fallbackId = rawFg is int
+                ? rawFg
+                : (int.tryParse('$rawFg') ?? rawFg.toString().hashCode.abs());
+            resultList.add({
+              'user_id': fallbackId,
+              'first_name': 'Unknown',
+              'last_name': 'User',
+              'user_email': '',
+              'avatar_url': '',
+            });
+          }
+        }
+      }
+
+      return resultList;
+    } catch (e, stack) {
+      debugPrint('Error getting following list for user $userId: $e\n$stack');
+      return [];
+    }
   }
 }

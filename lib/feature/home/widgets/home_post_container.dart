@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cctv_app/core/components/app_alert.dart';
 import 'package:cctv_app/core/components/app_bottom_sheet.dart';
 import 'package:cctv_app/core/components/custom_textfield.dart';
@@ -17,6 +19,7 @@ import 'package:cctv_app/core/utils/color_constants.dart';
 import 'package:cctv_app/feature/adminHome/pages/report_and_suspend.dart';
 import 'package:cctv_app/feature/home/widgets/comment_container.dart';
 import 'package:cctv_app/feature/home/widgets/vote_container.dart';
+import 'package:cctv_app/core/services/user_cache_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -238,7 +241,17 @@ class _HomePostContainerState extends State<HomePostContainer> {
   }
 
   Widget _buildAuthorAvatar(ActivePost post) {
-    final avatarUrl = post.authorAvatarUrl?.trim();
+    String? avatarUrl = post.authorAvatarUrl?.trim();
+    final authorId = post.authorUserId;
+
+    if ((avatarUrl == null || avatarUrl.isEmpty) && authorId != null) {
+      if (authorId == AuthStorage.cachedUserId) {
+        avatarUrl = AuthStorage.cachedProfileImageUrl?.trim();
+      } else {
+        avatarUrl = UserCacheService().getAvatarSync(authorId)?.trim();
+      }
+    }
+
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       // Handle asset paths
       if (avatarUrl.startsWith('assets/')) {
@@ -304,12 +317,12 @@ class _HomePostContainerState extends State<HomePostContainer> {
         ? author.trim()
         : (post.createdByUserInfo?.userEmail?.trim().isNotEmpty == true
             ? post.createdByUserInfo!.userEmail!.trim().split('@').first
-            : 'User A');
+            : 'Unknown');
     final defendantName = (defendant?.userInfo?.fullName.trim().isNotEmpty == true)
         ? defendant!.userInfo!.fullName.trim()
         : (defendant?.userInfo?.userEmail?.trim().isNotEmpty == true
             ? defendant!.userInfo!.userEmail!.trim().split('@').first
-            : 'User B');
+            : 'Unknown');
 
     return Container(
       width: double.infinity,
@@ -480,6 +493,58 @@ class _HomePostContainerState extends State<HomePostContainer> {
     );
   }
 
+  Widget _buildRepostAuthorAvatar(ActivePostRepost repost) {
+    String? avatarUrl = repost.repostUserDetail?.avatarUrl?.trim();
+    final authorId = repost.userId ?? repost.createdBy;
+
+    if ((avatarUrl == null || avatarUrl.isEmpty) && authorId != null) {
+      if (authorId == AuthStorage.cachedUserId) {
+        avatarUrl = AuthStorage.cachedProfileImageUrl?.trim();
+      } else {
+        avatarUrl = UserCacheService().getAvatarSync(authorId)?.trim();
+      }
+    }
+
+    if (avatarUrl != null && avatarUrl.isNotEmpty) {
+      if (avatarUrl.startsWith('assets/')) {
+        return CircleAvatar(
+          radius: 30,
+          backgroundColor: kLightGreyColor,
+          backgroundImage: AssetImage(avatarUrl),
+        );
+      }
+
+      return CircleAvatar(
+        radius: 30,
+        backgroundColor: kLightGreyColor,
+        backgroundImage: NetworkImage(avatarUrl),
+        onBackgroundImageError: (_, __) {},
+      );
+    }
+
+    final name = repost.repostUserDetail?.fullName.trim() ?? '';
+    final initials = name.isEmpty
+        ? 'U'
+        : name
+              .split(' ')
+              .where((part) => part.trim().isNotEmpty)
+              .take(2)
+              .map((part) => part[0].toUpperCase())
+              .join();
+
+    return CircleAvatar(
+      radius: 30,
+      backgroundColor: kTextfieldBlueColor,
+      child: Text(
+        initials,
+        style: context.semiBold.copyWith(
+          color: kPrimaryColor,
+          fontSize: 18,
+        ),
+      ),
+    );
+  }
+
   Widget _buildStandaloneRepostCard(
     BuildContext context, {
     required ActivePost post,
@@ -520,17 +585,7 @@ class _HomePostContainerState extends State<HomePostContainer> {
                     onTap: widget.onClickProfile,
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: kTextfieldBlueColor,
-                          child: Text(
-                            _buildInitials(authorName),
-                            style: context.semiBold.copyWith(
-                              color: kPrimaryColor,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
+                        _buildRepostAuthorAvatar(repost),
                         Space.horizontal(10),
                         Expanded(
                           child: Column(
@@ -670,12 +725,12 @@ class _HomePostContainerState extends State<HomePostContainer> {
         ? author.trim()
         : (post.createdByUserInfo?.userEmail?.trim().isNotEmpty == true
             ? post.createdByUserInfo!.userEmail!.trim().split('@').first
-            : 'User A');
+            : 'Unknown');
     final defendantName = (defendant?.userInfo?.fullName.trim().isNotEmpty == true)
         ? defendant!.userInfo!.fullName.trim()
         : (defendant?.userInfo?.userEmail?.trim().isNotEmpty == true
             ? defendant!.userInfo!.userEmail!.trim().split('@').first
-            : 'User B');
+            : 'Unknown');
 
     return Container(
       decoration: BoxDecoration(
@@ -940,8 +995,8 @@ class _HomePostContainerState extends State<HomePostContainer> {
                         ),
                         offset: const Offset(-12, 40),
                         constraints: const BoxConstraints(
-                          minWidth: 220,
-                          maxWidth: 240,
+                          minWidth: 160,
+                          maxWidth: 180,
                         ),
                         onSelected: (value) {
                           if (value == 'toggleSavedPost') {
@@ -1743,17 +1798,17 @@ class _HomePostContainerState extends State<HomePostContainer> {
   }) {
     return PopupMenuItem<String>(
       value: value,
-      height: 72,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          Icon(icon, color: color, size: 34),
-          Space.horizontal(22),
+          Icon(icon, color: color, size: 24),
+          Space.horizontal(16),
           Text(
             label,
             style: (isSave ? context.bold : context.normal).copyWith(
               color: color,
-              fontSize: 24,
+              fontSize: 16,
               height: 1.1,
             ),
           ),
@@ -2307,6 +2362,7 @@ class _HomePostContainerState extends State<HomePostContainer> {
             replyLabel: isReplying ? 'Cancel' : 'Reply',
             isReplyActive: isReplying,
             likeCount: comment.likes.length,
+            isLiked: comment.likes.contains(AuthStorage.cachedUserId),
             onLikeTap: () => _likeComment(comment.commentId),
             onMenuTap: () {},
             isReply: isReply,
@@ -3160,7 +3216,17 @@ class _PostAuthorAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarUrl = post.authorAvatarUrl?.trim();
+    String? avatarUrl = post.authorAvatarUrl?.trim();
+    final authorId = post.authorUserId;
+
+    if ((avatarUrl == null || avatarUrl.isEmpty) && authorId != null) {
+      if (authorId == AuthStorage.cachedUserId) {
+        avatarUrl = AuthStorage.cachedProfileImageUrl?.trim();
+      } else {
+        avatarUrl = UserCacheService().getAvatarSync(authorId)?.trim();
+      }
+    }
+
     if (avatarUrl != null && avatarUrl.isNotEmpty) {
       // Handle asset paths
       if (avatarUrl.startsWith('assets/')) {
@@ -3360,6 +3426,7 @@ class _IndividualMediaTileState extends State<_IndividualMediaTile> {
   VideoPlayerController? _videoController;
   Future<void>? _videoInitialization;
   VoidCallback? _videoListener;
+  bool _hasVideoError = false;
 
   @override
   void initState() {
@@ -3376,25 +3443,64 @@ class _IndividualMediaTileState extends State<_IndividualMediaTile> {
     }
   }
 
+  void _disposeVideoController() {
+    if (_videoListener != null && _videoController != null) {
+      _videoController!.removeListener(_videoListener!);
+    }
+    _videoController?.dispose();
+    _videoController = null;
+    _videoInitialization = null;
+    _videoListener = null;
+    _hasVideoError = false;
+  }
+
+  @override
+  void dispose() {
+    _disposeVideoController();
+    super.dispose();
+  }
+
   void _setupVideo() {
     final media = widget.media;
     if (media == null || !media.hasMedia || media.isImage) {
       return;
     }
 
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(media.metaUrl!),
-    );
-    _videoController = controller;
-    _videoListener = () {
-      if (!mounted) return;
-      setState(() {});
-    };
-    controller.addListener(_videoListener!);
-    _videoInitialization = controller.initialize().then((_) {
-      if (!mounted) return;
-      setState(() {});
-    });
+    _hasVideoError = false;
+    final url = (media.metaUrl ?? '').trim();
+    if (url.isEmpty) return;
+
+    try {
+      VideoPlayerController controller;
+      if (url.startsWith('assets/')) {
+        controller = VideoPlayerController.asset(url);
+      } else if (url.startsWith('http://') || url.startsWith('https://')) {
+        controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      } else {
+        controller = VideoPlayerController.file(File(url));
+      }
+
+      _videoController = controller;
+      _videoListener = () {
+        if (!mounted) return;
+        setState(() {});
+      };
+      controller.addListener(_videoListener!);
+      _videoInitialization = controller.initialize().then((_) {
+        if (!mounted) return;
+        setState(() {});
+      }).catchError((err) {
+        debugPrint('Video init error for $url: $err');
+        if (mounted) {
+          setState(() {
+            _hasVideoError = true;
+          });
+        }
+      });
+    } catch (e) {
+      debugPrint('Video controller setup error for $url: $e');
+      _hasVideoError = true;
+    }
   }
 
   @override
@@ -3408,7 +3514,7 @@ class _IndividualMediaTileState extends State<_IndividualMediaTile> {
           children: [
             _buildMedia(),
             // Show play icon overlay only for videos
-            if (widget.media != null && widget.media!.hasMedia && !widget.media!.isImage)
+            if (widget.media != null && widget.media!.hasMedia && !widget.media!.isImage && !_hasVideoError)
               Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -3444,23 +3550,29 @@ class _IndividualMediaTileState extends State<_IndividualMediaTile> {
     }
 
     if (!media.isImage) {
-      if (_videoController == null || _videoInitialization == null) {
-        return Container(
-          color: kBlackColor.withValues(alpha: 0.85),
-          alignment: Alignment.center,
-          child: const CircularProgressIndicator(color: kWhiteColor),
-        );
+      if (_hasVideoError || _videoController == null || _videoInitialization == null) {
+        return _buildVideoThumbnailOrFallback(media);
       }
 
       return FutureBuilder<void>(
         future: _videoInitialization,
         builder: (context, snapshot) {
+          if (snapshot.hasError || _hasVideoError) {
+            return _buildVideoThumbnailOrFallback(media);
+          }
+
           if (snapshot.connectionState != ConnectionState.done ||
               !_videoController!.value.isInitialized) {
-            return Container(
-              color: kBlackColor.withValues(alpha: 0.85),
-              alignment: Alignment.center,
-              child: const CircularProgressIndicator(color: kWhiteColor),
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildVideoThumbnailOrFallback(media),
+                Container(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  alignment: Alignment.center,
+                  child: const CircularProgressIndicator(color: kWhiteColor),
+                ),
+              ],
             );
           }
 
@@ -3489,53 +3601,41 @@ class _IndividualMediaTileState extends State<_IndividualMediaTile> {
     );
   }
 
+  Widget _buildVideoThumbnailOrFallback(ActivePostMeta media) {
+    final url = (media.metaUrl ?? '').trim();
+    if (url.isNotEmpty) {
+      return _buildImageWidget(url);
+    }
+    return Container(
+      color: kLightGreyColor,
+      alignment: Alignment.center,
+      child: const Icon(Icons.videocam_outlined, color: kDarkGreyColor, size: 40),
+    );
+  }
+
   Widget _buildImageWidget(String url) {
-    // If it's an asset path, use Image.asset
     if (url.startsWith('assets/')) {
       return Image.asset(
         url,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) {
-          print('Asset load error for $url: $error');
           return Container(
             color: kLightGreyColor,
             alignment: Alignment.center,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.image_outlined, color: kDarkGreyColor, size: 40),
-                const SizedBox(height: 8),
-                Text(
-                  'Image',
-                  style: TextStyle(color: kDarkGreyColor, fontSize: 12),
-                ),
-              ],
-            ),
+            child: const Icon(Icons.image_outlined, color: kDarkGreyColor, size: 40),
           );
         },
       );
     }
 
-    // If it's a URL, use Image.network
     return Image.network(
       url,
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) {
-        print('Image load error for $url: $error');
         return Container(
           color: kLightGreyColor,
           alignment: Alignment.center,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.image_outlined, color: kDarkGreyColor, size: 40),
-              const SizedBox(height: 8),
-              Text(
-                'Image',
-                style: TextStyle(color: kDarkGreyColor, fontSize: 12),
-              ),
-            ],
-          ),
+          child: const Icon(Icons.image_outlined, color: kDarkGreyColor, size: 40),
         );
       },
       loadingBuilder: (context, child, progress) {
@@ -3547,22 +3647,6 @@ class _IndividualMediaTileState extends State<_IndividualMediaTile> {
         );
       },
     );
-  }
-
-  void _disposeVideoController() {
-    if (_videoController != null && _videoListener != null) {
-      _videoController!.removeListener(_videoListener!);
-    }
-    _videoController?.dispose();
-    _videoController = null;
-    _videoInitialization = null;
-    _videoListener = null;
-  }
-
-  @override
-  void dispose() {
-    _disposeVideoController();
-    super.dispose();
   }
 
   void _openMediaFullscreen(BuildContext context, ActivePostMeta media) {
@@ -3609,14 +3693,21 @@ class _FullscreenMediaViewerState extends State<_FullscreenMediaViewer> {
   void initState() {
     super.initState();
     if (!widget.isImage) {
-      _controller = VideoPlayerController.networkUrl(
-        Uri.parse(widget.mediaUrl),
-      );
+      final url = widget.mediaUrl.trim();
+      if (url.startsWith('assets/')) {
+        _controller = VideoPlayerController.asset(url);
+      } else if (url.startsWith('http://') || url.startsWith('https://')) {
+        _controller = VideoPlayerController.networkUrl(Uri.parse(url));
+      } else {
+        _controller = VideoPlayerController.file(File(url));
+      }
       _initialization = _controller!.initialize().then((_) {
         _controller!.play();
         if (mounted) {
           setState(() {});
         }
+      }).catchError((err) {
+        debugPrint('Fullscreen video load error: $err');
       });
     }
   }
@@ -3660,20 +3751,35 @@ class _FullscreenMediaViewerState extends State<_FullscreenMediaViewer> {
       child: InteractiveViewer(
         minScale: 1,
         maxScale: 4,
-        child: Image.network(
-          widget.mediaUrl,
-          fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) {
-            return const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.broken_image, color: Colors.white54, size: 60),
-                SizedBox(height: 16),
-                Text('Failed to load image', style: TextStyle(color: Colors.white54)),
-              ],
-            );
-          },
-        ),
+        child: widget.mediaUrl.startsWith('assets/')
+            ? Image.asset(
+                widget.mediaUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.broken_image, color: Colors.white54, size: 60),
+                      SizedBox(height: 16),
+                      Text('Failed to load image', style: TextStyle(color: Colors.white54)),
+                    ],
+                  );
+                },
+              )
+            : Image.network(
+                widget.mediaUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.broken_image, color: Colors.white54, size: 60),
+                      SizedBox(height: 16),
+                      Text('Failed to load image', style: TextStyle(color: Colors.white54)),
+                    ],
+                  );
+                },
+              ),
       ),
     );
   }

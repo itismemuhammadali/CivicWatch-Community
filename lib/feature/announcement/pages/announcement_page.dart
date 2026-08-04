@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:cctv_app/core/components/app_alert.dart';
-import 'package:cctv_app/core/components/admin_top_header.dart';
+import 'package:cctv_app/core/components/super_admin_top_header.dart';
 import 'package:cctv_app/core/components/custom_dropdown.dart';
 import 'package:cctv_app/core/components/custom_textfield.dart';
 import 'package:cctv_app/core/components/primary_button.dart';
@@ -37,10 +37,30 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
   final TextEditingController _alertNoteController = TextEditingController();
 
   static final List<GeneralParameterOption> _defaultCategories = [
-    const GeneralParameterOption(paramDetailId: 1, paramHeader: 'ALERT_CATEGORY_TYPE', paramValue: 'General Alert', paramLabel: 'General Alert'),
-    const GeneralParameterOption(paramDetailId: 2, paramHeader: 'ALERT_CATEGORY_TYPE', paramValue: 'Emergency', paramLabel: 'Emergency'),
-    const GeneralParameterOption(paramDetailId: 3, paramHeader: 'ALERT_CATEGORY_TYPE', paramValue: 'Warning', paramLabel: 'Warning'),
-    const GeneralParameterOption(paramDetailId: 4, paramHeader: 'ALERT_CATEGORY_TYPE', paramValue: 'System Update', paramLabel: 'System Update'),
+    const GeneralParameterOption(
+      paramDetailId: 1,
+      paramHeader: 'ALERT_CATEGORY_TYPE',
+      paramValue: 'General Alert',
+      paramLabel: 'General Alert',
+    ),
+    const GeneralParameterOption(
+      paramDetailId: 2,
+      paramHeader: 'ALERT_CATEGORY_TYPE',
+      paramValue: 'Emergency',
+      paramLabel: 'Emergency',
+    ),
+    const GeneralParameterOption(
+      paramDetailId: 3,
+      paramHeader: 'ALERT_CATEGORY_TYPE',
+      paramValue: 'Warning',
+      paramLabel: 'Warning',
+    ),
+    const GeneralParameterOption(
+      paramDetailId: 4,
+      paramHeader: 'ALERT_CATEGORY_TYPE',
+      paramValue: 'System Update',
+      paramLabel: 'System Update',
+    ),
   ];
 
   List<GeneralParameterOption> _categories = _defaultCategories;
@@ -126,7 +146,8 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
     });
 
     try {
-      final accessToken = await const AuthStorage().readAccessToken() ?? 'demo_token';
+      final accessToken =
+          await const AuthStorage().readAccessToken() ?? 'demo_token';
 
       final uploadedMedia = await _applicationCloudService.uploadImage(
         accessToken: accessToken,
@@ -207,7 +228,10 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
 
       if (!mounted) return;
       _clearForm();
-      AppAlert.showSuccess(context, 'Announcement sent to all users and admins!');
+      AppAlert.showSuccess(
+        context,
+        'Announcement sent to all users and admins!',
+      );
     } catch (e) {
       if (!mounted) return;
       AppAlert.showError(context, 'Failed to submit alert: $e');
@@ -224,12 +248,12 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 350;
     return Padding(
-      padding: const EdgeInsets.only(top: 10, left: 16.0, right: 16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            AdminTopHeader(),
+            const SuperAdminTopHeader(),
             Space.vertical(20),
             Align(
               alignment: Alignment.centerRight,

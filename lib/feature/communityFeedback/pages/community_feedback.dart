@@ -9,6 +9,7 @@ import 'package:cctv_app/core/network/models/active_reel.dart';
 import 'package:cctv_app/core/network/models/post_report.dart';
 import 'package:cctv_app/core/network/services/case_post_service.dart';
 import 'package:cctv_app/core/storage/auth_storage.dart';
+import 'package:cctv_app/core/utils/app_date_time.dart';
 import 'package:cctv_app/core/utils/assets.dart';
 import 'package:cctv_app/core/utils/color_constants.dart';
 import 'package:cctv_app/feature/communityFeedback/pages/feedback_view.dart';
@@ -54,7 +55,7 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
     try {
       final posts = await FirestoreDataService().getAllActivePostsEnriched();
       final reels = await FirestoreDataService().getAllActiveReels();
-      
+
       if (!mounted) return;
       setState(() {
         _dynamicPosts = posts;
@@ -64,7 +65,9 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
       try {
         final accessToken = await const AuthStorage().readAccessToken();
         if (accessToken != null) {
-          final posts = await CasePostService().getAllRecentPosts(accessToken: accessToken);
+          final posts = await CasePostService().getAllRecentPosts(
+            accessToken: accessToken,
+          );
           if (!mounted) return;
           setState(() {
             _dynamicPosts = posts;
@@ -72,10 +75,11 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
         }
       } catch (_) {}
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -85,12 +89,13 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
       return _dynamicPosts;
     }
     final targetCategory = _categories[selectedIndex].toLowerCase();
-    
+
     // Attempt to match by categoryId or descriptions
     return _dynamicPosts.where((post) {
       final title = post.caseDetail?.caseTitle.toLowerCase() ?? '';
       final description = post.postDescription.toLowerCase();
-      return title.contains(targetCategory) || description.contains(targetCategory);
+      return title.contains(targetCategory) ||
+          description.contains(targetCategory);
     }).toList();
   }
 
@@ -120,7 +125,9 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => const ProfilePage()),
+                            MaterialPageRoute(
+                              builder: (context) => const ProfilePage(),
+                            ),
                           );
                         },
                       ),
@@ -130,7 +137,10 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                           topPadding: 10,
                           bottomPadding: 10,
                           hintText: "Search",
-                          prefix: const Icon(Icons.search, color: kDarkGreyColor),
+                          prefix: const Icon(
+                            Icons.search,
+                            color: kDarkGreyColor,
+                          ),
                           hintTextColor: kDarkGreyColor,
                         ),
                       ),
@@ -173,7 +183,10 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                         },
                         child: Container(
                           margin: const EdgeInsets.only(right: 10),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: isSelected ? kPrimaryColor : kWhiteColor,
                             borderRadius: BorderRadius.circular(20),
@@ -207,7 +220,9 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                         onTap: () async {
                           final created = await Navigator.push<bool>(
                             context,
-                            MaterialPageRoute(builder: (_) => const CreateReelPage()),
+                            MaterialPageRoute(
+                              builder: (_) => const CreateReelPage(),
+                            ),
                           );
                           if (created == true) {
                             _loadDynamicData();
@@ -232,7 +247,11 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                                         color: kBlackColor,
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.add, color: kWhiteColor, size: 24),
+                                      child: const Icon(
+                                        Icons.add,
+                                        color: kWhiteColor,
+                                        size: 24,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -240,7 +259,10 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                               Space.vertical(6),
                               Text(
                                 "Add highlight",
-                                style: context.normal.copyWith(fontSize: 12, color: kBlackColor),
+                                style: context.normal.copyWith(
+                                  fontSize: 12,
+                                  color: kBlackColor,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -251,8 +273,11 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
 
                       // Dynamic Highlights List from Firestore
                       ..._dynamicReels.map((reel) {
-                        final coverUrl = reel.applicationMeta?.metaUrl?.trim() ?? '';
-                        final avatarUrl = reel.userInfo?.applicationMeta?.metaUrl?.trim() ?? '';
+                        final coverUrl =
+                            reel.applicationMeta?.metaUrl?.trim() ?? '';
+                        final avatarUrl =
+                            reel.userInfo?.applicationMeta?.metaUrl?.trim() ??
+                            '';
                         final userName = reel.userInfo?.firstName ?? 'User';
 
                         return GestureDetector(
@@ -260,7 +285,8 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                             final deleted = await Navigator.push<bool>(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => FullscreenReelViewer(reel: reel),
+                                builder: (_) =>
+                                    FullscreenReelViewer(reel: reel),
                               ),
                             );
                             if (deleted == true) {
@@ -283,14 +309,21 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                                                 width: 100,
                                                 height: double.infinity,
                                                 fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) => Container(
-                                                  color: kGreyColor,
-                                                  child: const Icon(Icons.videocam, color: kWhiteColor),
-                                                ),
+                                                errorBuilder: (_, __, ___) =>
+                                                    Container(
+                                                      color: kGreyColor,
+                                                      child: const Icon(
+                                                        Icons.videocam,
+                                                        color: kWhiteColor,
+                                                      ),
+                                                    ),
                                               )
                                             : Container(
                                                 color: kGreyColor,
-                                                child: const Icon(Icons.videocam, color: kWhiteColor),
+                                                child: const Icon(
+                                                  Icons.videocam,
+                                                  color: kWhiteColor,
+                                                ),
                                               ),
                                       ),
                                       Positioned(
@@ -303,12 +336,18 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                                             backgroundColor: kWhiteColor,
                                             child: CircleAvatar(
                                               radius: 14,
-                                              backgroundColor: kGreyColor.withValues(alpha: 0.3),
-                                              backgroundImage: avatarUrl.isNotEmpty
+                                              backgroundColor: kGreyColor
+                                                  .withValues(alpha: 0.3),
+                                              backgroundImage:
+                                                  avatarUrl.isNotEmpty
                                                   ? NetworkImage(avatarUrl)
                                                   : null,
                                               child: avatarUrl.isEmpty
-                                                  ? const Icon(Icons.person, color: kDarkGreyColor, size: 14)
+                                                  ? const Icon(
+                                                      Icons.person,
+                                                      color: kDarkGreyColor,
+                                                      size: 14,
+                                                    )
                                                   : null,
                                             ),
                                           ),
@@ -320,7 +359,10 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                                 Space.vertical(6),
                                 Text(
                                   userName,
-                                  style: context.normal.copyWith(fontSize: 12, color: kBlackColor),
+                                  style: context.normal.copyWith(
+                                    fontSize: 12,
+                                    color: kBlackColor,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -348,11 +390,16 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                     alignment: Alignment.center,
                     child: Text(
                       "No cases found in this category",
-                      style: context.normal.copyWith(color: kDarkGreyColor, fontSize: 16),
+                      style: context.normal.copyWith(
+                        color: kDarkGreyColor,
+                        fontSize: 16,
+                      ),
                     ),
                   )
                 else
-                  ...filteredPosts.map((post) => _buildDynamicPostCard(context, post)),
+                  ...filteredPosts.map(
+                    (post) => _buildDynamicPostCard(context, post),
+                  ),
                 Space.vertical(24),
               ],
             ),
@@ -364,20 +411,42 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
 
   Widget _buildDynamicPostCard(BuildContext context, ActivePost post) {
     final caseDetail = post.caseDetail;
-    final defendantA = post.defendantDetails.isNotEmpty ? post.defendantDetails[0] : null;
-    final defendantB = post.defendantDetails.length > 1 ? post.defendantDetails[1] : null;
+    final defendant = post.defendantDetails.isNotEmpty
+        ? post.defendantDetails.first
+        : null;
 
     final avatarUrl = post.authorAvatarUrl;
-    final authorName = post.authorDisplayName.isEmpty ? "Community User" : post.authorDisplayName;
+    final authorName = post.authorDisplayName.isEmpty
+        ? "Unknown"
+        : post.authorDisplayName;
+
+    final defendantName =
+        (defendant?.userInfo?.fullName.trim().isNotEmpty == true)
+        ? defendant!.userInfo!.fullName.trim()
+        : (defendant?.userInfo?.userEmail?.trim().isNotEmpty == true
+              ? defendant!.userInfo!.userEmail!.trim().split('@').first
+              : 'Unknown');
 
     // Fetch dynamic cover images for Options A and B
-    final coverA = defendantA?.meta?.metaUrl?.trim() ?? '';
-    final coverB = defendantB?.meta?.metaUrl?.trim() ?? '';
+    final coverA = caseDetail?.metaList.isNotEmpty == true
+        ? caseDetail!.metaList.first.metaUrl?.trim() ?? ''
+        : caseDetail?.meta?.metaUrl?.trim() ?? '';
+    final coverB = defendant?.metaList.isNotEmpty == true
+        ? defendant!.metaList.first.metaUrl?.trim() ?? ''
+        : defendant?.meta?.metaUrl?.trim() ?? '';
 
     // Calculate time left or use default
-    final createdAt = post.createdAt != null ? DateTime.tryParse(post.createdAt!) : null;
-    final diff = createdAt != null ? DateTime.now().difference(createdAt) : null;
+    final createdAt = post.createdAt != null
+        ? DateTime.tryParse(post.createdAt!)
+        : null;
+    final diff = createdAt != null
+        ? DateTime.now().difference(createdAt)
+        : null;
     final remainingHours = diff != null ? (24 - diff.inHours).clamp(1, 24) : 8;
+    final timeAgo = AppDateTime.formatTimeAgo(
+      post.createdAt,
+      fallback: '2 mins ago',
+    );
 
     return Container(
       margin: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
@@ -395,12 +464,21 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
             children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: kGreyColor.withValues(alpha: 0.3),
+                backgroundColor: avatarUrl != null && avatarUrl.isNotEmpty
+                    ? Colors.transparent
+                    : kPrimaryColor,
                 backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                     ? NetworkImage(avatarUrl)
                     : null,
                 child: avatarUrl == null || avatarUrl.isEmpty
-                    ? const Icon(Icons.person, color: kDarkGreyColor, size: 20)
+                    ? Text(
+                        _buildInitials(authorName),
+                        style: const TextStyle(
+                          color: kWhiteColor,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
                     : null,
               ),
               Space.horizontal(10),
@@ -410,11 +488,17 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                   children: [
                     Text(
                       authorName,
-                      style: context.bold.copyWith(fontSize: 15, color: kBlackColor),
+                      style: context.bold.copyWith(
+                        fontSize: 15,
+                        color: kBlackColor,
+                      ),
                     ),
                     Text(
-                      post.createdAt != null ? "${diff?.inMinutes ?? 2} mints ago" : "2 mints ago",
-                      style: context.normal.copyWith(fontSize: 12, color: kDarkGreyColor),
+                      timeAgo,
+                      style: context.normal.copyWith(
+                        fontSize: 12,
+                        color: kDarkGreyColor,
+                      ),
                     ),
                   ],
                 ),
@@ -431,14 +515,20 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
               Expanded(
                 child: Text(
                   caseDetail?.caseTitle ?? post.postDescription,
-                  style: context.bold.copyWith(fontSize: 20, color: kBlackColor),
+                  style: context.bold.copyWith(
+                    fontSize: 20,
+                    color: kBlackColor,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
               Text(
                 "$remainingHours hours left",
-                style: context.normal.copyWith(fontSize: 12, color: kDarkGreyColor),
+                style: context.normal.copyWith(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                ),
               ),
             ],
           ),
@@ -467,14 +557,21 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                         child: CircleAvatar(
                           radius: 20,
                           backgroundColor: kPrimaryColor,
-                          child: const Icon(Icons.play_arrow, color: kWhiteColor, size: 24),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: kWhiteColor,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
                     Space.vertical(8),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: kPrimaryColor.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -488,13 +585,20 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                               color: kPrimaryColor,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(Icons.check, color: kWhiteColor, size: 10),
+                            child: const Icon(
+                              Icons.check,
+                              color: kWhiteColor,
+                              size: 10,
+                            ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              "A. ${defendantA?.userInfo?.fullName ?? 'Option A'}",
-                              style: context.semiBold.copyWith(fontSize: 12, color: kPrimaryColor),
+                              "A. $authorName",
+                              style: context.semiBold.copyWith(
+                                fontSize: 12,
+                                color: kPrimaryColor,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -526,14 +630,21 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                         child: CircleAvatar(
                           radius: 20,
                           backgroundColor: kPrimaryColor,
-                          child: const Icon(Icons.play_arrow, color: kWhiteColor, size: 24),
+                          child: const Icon(
+                            Icons.play_arrow,
+                            color: kWhiteColor,
+                            size: 24,
+                          ),
                         ),
                       ),
                     ),
                     Space.vertical(8),
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 10,
+                      ),
                       decoration: BoxDecoration(
                         color: kWhiteColor,
                         borderRadius: BorderRadius.circular(8),
@@ -541,11 +652,20 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.only(left: 4),
-                        child: Text(
-                          "B. ${defendantB?.userInfo?.fullName ?? 'Option B'}",
-                          style: context.semiBold.copyWith(fontSize: 12, color: kBlackColor),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "B. $defendantName",
+                                style: context.semiBold.copyWith(
+                                  fontSize: 12,
+                                  color: kBlackColor,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -572,10 +692,7 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => FeedbackView(
-                    report: dummyReport,
-                    post: post,
-                  ),
+                  builder: (_) => FeedbackView(report: dummyReport, post: post),
                 ),
               );
             },
@@ -583,5 +700,15 @@ class _CommunityFeedbackState extends State<CommunityFeedback> {
         ],
       ),
     );
+  }
+
+  String _buildInitials(String value) {
+    final initials = value
+        .split(' ')
+        .where((part) => part.trim().isNotEmpty)
+        .take(2)
+        .map((part) => part[0].toUpperCase())
+        .join();
+    return initials.isEmpty ? 'U' : initials;
   }
 }

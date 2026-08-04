@@ -62,7 +62,7 @@ class ActivePost {
       return email.split('@').first;
     }
 
-    return 'User';
+    return 'Unknown';
   }
 
   int? get authorUserId {
@@ -202,20 +202,28 @@ class ActivePostRepostUserDetail {
   final String firstName;
   final String lastName;
   final String? userEmail;
+  final String? avatarUrl;
 
   const ActivePostRepostUserDetail({
     required this.firstName,
     required this.lastName,
     this.userEmail,
+    this.avatarUrl,
   });
 
   String get fullName => '$firstName $lastName'.trim();
 
   factory ActivePostRepostUserDetail.fromJson(Map<String, dynamic> json) {
     return ActivePostRepostUserDetail(
-      firstName: json['first_name'] as String? ?? '',
-      lastName: json['last_name'] as String? ?? '',
-      userEmail: json['user_email'] as String?,
+      firstName: json['first_name'] as String? ?? json['firstName'] as String? ?? '',
+      lastName: json['last_name'] as String? ?? json['lastName'] as String? ?? '',
+      userEmail: json['user_email'] as String? ?? json['email'] as String?,
+      avatarUrl:
+          json['avatar_url'] as String? ??
+          json['profileImageUrl'] as String? ??
+          json['profile_image_url'] as String? ??
+          json['profile_meta_url'] as String? ??
+          json['meta_url'] as String?,
     );
   }
 }
@@ -244,12 +252,14 @@ class ActivePostUserInfo {
         : null;
 
     return ActivePostUserInfo(
-      firstName: json['first_name'] as String? ?? '',
-      lastName: json['last_name'] as String? ?? '',
-      userEmail: json['user_email'] as String?,
+      firstName: json['first_name'] as String? ?? json['firstName'] as String? ?? '',
+      lastName: json['last_name'] as String? ?? json['lastName'] as String? ?? '',
+      userEmail: json['user_email'] as String? ?? json['email'] as String?,
       applicationMeta: applicationMeta,
       avatarUrl:
           applicationMeta?.metaUrl ??
+          json['profileImageUrl'] as String? ??
+          json['profile_image_url'] as String? ??
           json['profile_meta_url'] as String? ??
           json['meta_url'] as String? ??
           json['image_url'] as String? ??
