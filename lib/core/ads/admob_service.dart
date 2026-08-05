@@ -19,8 +19,20 @@ class AdMobService {
   static String prodBannerAdUnitIdAndroid = '';
   static String prodBannerAdUnitIdIOS = '';
 
+  // Test Interstitial Ad Unit IDs
+  static const String _testInterstitialAdUnitIdAndroid =
+      'ca-app-pub-3904725345774897/1033173712';
+  static const String _testInterstitialAdUnitIdIOS =
+      'ca-app-pub-3904725345774897/4411468910';
+
+  // Production Interstitial Ad Unit IDs
+  static String prodInterstitialAdUnitIdAndroid = '';
+  static String prodInterstitialAdUnitIdIOS = '';
+
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
+
+  InterstitialAd? _interstitialAd;
 
   /// Initializes Google Mobile Ads SDK (Android & iOS only)
   Future<void> initialize() async {
@@ -54,5 +66,74 @@ class AdMobService {
       return prodBannerAdUnitIdIOS;
     }
     return '';
+  }
+
+  /// Returns the appropriate Interstitial Ad Unit ID based on platform & debug mode
+  static String get interstitialAdUnitId {
+    if (kIsWeb) return '';
+
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      if (kDebugMode || prodInterstitialAdUnitIdAndroid.isEmpty) {
+        return _testInterstitialAdUnitIdAndroid;
+      }
+      return prodInterstitialAdUnitIdAndroid;
+    } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+      if (kDebugMode || prodInterstitialAdUnitIdIOS.isEmpty) {
+        return _testInterstitialAdUnitIdIOS;
+      }
+      return prodInterstitialAdUnitIdIOS;
+    }
+    return '';
+  }
+
+  /// Loads an interstitial ad in the background so it's ready to show instantly.
+  void loadInterstitialAd() {
+    if (kIsWeb || !_isInitialized) return;
+
+    final adUnitId = interstitialAdUnitId;
+    if (adUnitId.isEmpty) return;
+
+    InterstitialAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (ad) {
+          _interstitialAd = ad;
+          debugPrint('InterstitialAd loaded successfully.');
+        },
+        onAdFailedToLoad: (error) {
+          debugPrint('InterstitialAd failed to load: $error');
+          _interstitialAd = null;
+        },
+      ),
+    );
+  }
+
+  /// Shows the pre-loaded interstitial ad, then triggers loading the next one.
+  void showInterstitialAd({VoidCallback? onAdDismissed}) {
+    if (_interstitialAd == null) {
+      debugPrint('Warning: InterstitialAd not ready yet.');
+      onAdDismissed?.call();
+      return;
+    }
+
+    _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+      onAdShowedFullScreenContent: (ad) => debugPrint('Ad showed fullscreen.'),
+      onAdDismissedFullScreenContent: (ad) {
+        debugPrint('Ad dismissed fullscreen.');
+        ad.dispose();
+        _interstitialAd = null;
+        loadInterstitialAd(); // Load the next one
+        onAdDismissed?.call();
+      },
+      onAdFailedToShowFullScreenContent: (ad, error) {
+        debugPrint('Ad failed to show: $error');
+        ad.dispose();
+        _interstitialAd = null;
+        onAdDismissed?.call();
+      },
+    );
+
+    _interstitialAd!.show();
   }
 }

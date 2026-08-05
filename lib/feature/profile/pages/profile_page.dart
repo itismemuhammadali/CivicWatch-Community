@@ -272,6 +272,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kWhiteColor,
+      bottomNavigationBar: const AdMobBannerWidget(),
       body: Container(
         color: kWhiteColor,
         child: Column(

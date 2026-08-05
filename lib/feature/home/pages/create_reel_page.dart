@@ -10,6 +10,7 @@ import 'package:cctv_app/core/network/models/uploaded_media.dart';
 import 'package:cctv_app/core/network/services/application_cloud_service.dart';
 import 'package:cctv_app/core/network/services/user_case_service.dart';
 import 'package:cctv_app/core/storage/auth_storage.dart';
+import 'package:cctv_app/core/ads/admob_service.dart';
 import 'package:cctv_app/core/utils/color_constants.dart';
 import 'package:cctv_app/core/utils/validators.dart';
 import 'package:flutter/foundation.dart';
@@ -36,6 +37,12 @@ class _CreateReelPageState extends State<CreateReelPage> {
   Uint8List? _selectedImageBytes;
 
   bool get _hasUploadedMedia => _uploadedMetaId != null;
+
+  @override
+  void initState() {
+    super.initState();
+    AdMobService.instance.loadInterstitialAd();
+  }
 
   @override
   void dispose() {
@@ -218,7 +225,13 @@ class _CreateReelPageState extends State<CreateReelPage> {
 
       if (!mounted) return;
       AppAlert.showSuccess(context, 'Reel created successfully');
-      Navigator.of(context).pop(true);
+      AdMobService.instance.showInterstitialAd(
+        onAdDismissed: () {
+          if (mounted) {
+            Navigator.of(context).pop(true);
+          }
+        },
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       AppAlert.showError(context, e.message);

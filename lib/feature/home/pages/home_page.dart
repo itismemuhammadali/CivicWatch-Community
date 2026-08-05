@@ -16,6 +16,7 @@ import 'package:cctv_app/core/network/services/user_case_service.dart';
 import 'package:cctv_app/core/realtime/app_websocket_event.dart';
 import 'package:cctv_app/core/realtime/app_websocket_service.dart';
 import 'package:cctv_app/core/storage/auth_storage.dart';
+import 'package:cctv_app/core/ads/admob_banner_widget.dart';
 import 'package:cctv_app/core/utils/assets.dart';
 import 'package:cctv_app/core/utils/color_constants.dart';
 import 'package:cctv_app/feature/home/pages/create_reel_page.dart';
@@ -570,6 +571,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
+        const AdMobBannerWidget(),
       ],
     );
   }
