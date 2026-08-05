@@ -17,6 +17,8 @@ import 'package:cctv_app/core/utils/validators.dart';
 import 'package:cctv_app/feature/bottomNavBar/user_bottom_nav_bar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:cctv_app/feature/profile/pages/terms_and_policies.dart';
 
 class SignupView extends StatefulWidget {
   const SignupView({super.key});
@@ -377,6 +379,59 @@ class _SignupViewState extends State<SignupView> {
               fontSize: 14,
               fontWeight: FontWeight.bold,
               color: kBlackColor,
+            ),
+          ),
+          Space.vertical(20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                  height: 1.5,
+                ),
+                children: [
+                  const TextSpan(text: 'By signing up, you agree to our '),
+                  TextSpan(
+                    text: 'End User License Agreement',
+                    style: TextStyle(
+                      color: kPrimaryColor,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TermsAndPolicies(),
+                          ),
+                        );
+                      },
+                  ),
+                  const TextSpan(text: ' and '),
+                  TextSpan(
+                    text: 'Privacy Policy',
+                    style: TextStyle(
+                      color: kPrimaryColor,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TermsAndPolicies(),
+                          ),
+                        );
+                      },
+                  ),
+                  const TextSpan(text: '.'),
+                ],
+              ),
             ),
           ),
           Space.vertical(20),
