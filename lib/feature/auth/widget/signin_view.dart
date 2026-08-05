@@ -17,6 +17,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/gestures.dart';
+import 'package:cctv_app/feature/profile/pages/terms_and_policies.dart';
 
 class SigninView extends StatefulWidget {
   final int selectedRoleIndex; // 0: Super Admin, 1: Admin, 2: User
@@ -279,7 +281,60 @@ class _SigninViewState extends State<SigninView> {
               },
             ),
           ),
-          Space.vertical(30),
+          Space.vertical(20),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                style: TextStyle(
+                  fontSize: 12,
+                  color: kDarkGreyColor,
+                  height: 1.5,
+                ),
+                children: [
+                  const TextSpan(text: 'By logging in, you agree to our '),
+                  TextSpan(
+                    text: 'End User License Agreement',
+                    style: TextStyle(
+                      color: kPrimaryColor,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TermsAndPolicies(),
+                          ),
+                        );
+                      },
+                  ),
+                  const TextSpan(text: ' and '),
+                  TextSpan(
+                    text: 'Privacy Policy',
+                    style: TextStyle(
+                      color: kPrimaryColor,
+                      fontWeight: FontWeight.bold,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TermsAndPolicies(),
+                          ),
+                        );
+                      },
+                  ),
+                  const TextSpan(text: '.'),
+                ],
+              ),
+            ),
+          ),
+          Space.vertical(20),
           PrimaryButton(
             text: "Log in",
             isMainAxisSizeMin: true,
