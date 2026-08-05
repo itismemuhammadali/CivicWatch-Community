@@ -11,6 +11,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
 
+import 'package:cctv_app/core/ads/admob_service.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (ApiConfig.USE_FIREBASE) {
@@ -33,6 +35,9 @@ Future<void> main() async {
   }
   PostLinkManager.instance.initialize().catchError((e) {
     debugPrint('PostLinkManager init error: $e');
+  });
+  AdMobService.instance.initialize().catchError((e) {
+    debugPrint('AdMobService init error: $e');
   });
   runApp(const MyApp());
 }

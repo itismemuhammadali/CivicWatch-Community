@@ -51,6 +51,7 @@ dependencies:
   firebase_auth: ^5.4.1
   cloud_firestore: ^5.6.1
   firebase_storage: ^12.4.10
+  google_mobile_ads: ^5.2.0
   
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4
