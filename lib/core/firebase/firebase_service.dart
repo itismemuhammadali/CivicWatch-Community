@@ -85,6 +85,12 @@ class FirebaseAuthService {
       });
 
       print('FIREBASE AUTH: signUp successful. User UID: ${credential.user?.uid}');
+      try {
+        await credential.user?.sendEmailVerification();
+        print('FIREBASE AUTH: Verification email sent.');
+      } catch (e) {
+        print('FIREBASE AUTH: Failed to send verification email: $e');
+      }
       print('=======================================');
       return {
         'success': true,

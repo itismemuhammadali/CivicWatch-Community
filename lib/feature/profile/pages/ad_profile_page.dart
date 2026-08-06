@@ -142,10 +142,14 @@ class _AdProfilePageState extends State<AdProfilePage> {
                       Column(
                         children: [
                           const CircleAvatar(
-                        radius: 50,
-                        backgroundColor: kTextfieldBlueColor,
-                        backgroundImage: AssetImage('assets/images/super_admin_avatar.png'),
-                      ),
+                            radius: 50,
+                            backgroundColor: kLightGreyColor,
+                            child: Icon(
+                              Icons.person,
+                              size: 50,
+                              color: kDarkGreyColor,
+                            ),
+                          ),
                           Space.vertical(15),
                           Text(
                             _name,

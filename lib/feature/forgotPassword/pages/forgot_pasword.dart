@@ -5,6 +5,7 @@ import 'package:cctv_app/core/utils/color_constants.dart';
 import 'package:cctv_app/core/utils/validators.dart';
 import 'package:cctv_app/feature/forgotPassword/pages/email_verifcation.dart';
 import 'package:cctv_app/feature/forgotPassword/widget/forgot_password_header.dart';
+import 'package:cctv_app/core/firebase/firebase_service.dart';
 import 'package:flutter/material.dart';
 
 class ForgotPasword extends StatefulWidget {
@@ -65,14 +66,22 @@ class _ForgotPaswordState extends State<ForgotPasword> {
                   text: "Recover password",
                   isMainAxisSizeMin: true,
                   padding: EdgeInsets.symmetric(horizontal: 50),
-                  onPressed: () {
+                  onPressed: () async {
                     if (formKey.currentState!.validate()) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const EmailVerifcation(),
-                        ),
-                      );
+                      final email = emailController.text.trim();
+                      final success = await FirebaseAuthService().resetPassword(email);
+                      if (context.mounted) {
+                        if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('A password reset link has been sent to your email.')),
+                          );
+                          Navigator.pop(context);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Failed to send reset email. Please check your email address.')),
+                          );
+                        }
+                      }
                     }
                   },
                 ),

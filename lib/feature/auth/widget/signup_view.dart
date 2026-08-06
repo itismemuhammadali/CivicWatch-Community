@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -89,6 +90,69 @@ class _SignupViewState extends State<SignupView> {
 
       if (user == null || token == null) {
         throw const ApiException('Signup succeeded but auth data is missing');
+      }
+
+      // Show dialog requiring email verification
+      bool isVerified = false;
+      if (mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) {
+            return WillPopScope(
+              onWillPop: () async => false, // Prevent back button
+              child: AlertDialog(
+                title: const Text('Verify Email'),
+                content: const Text('A verification link has been sent to your email address. Please click the link to verify your account and then click "I have verified" below to continue.'),
+                actions: [
+                  TextButton(
+                    onPressed: () async {
+                      try {
+                        await user.sendEmailVerification();
+                        if (dialogContext.mounted) {
+                          AppAlert.showSuccess(dialogContext, 'Verification email resent!');
+                        }
+                      } catch (e) {
+                        if (dialogContext.mounted) {
+                          AppAlert.showError(dialogContext, e.toString());
+                        }
+                      }
+                    },
+                    child: const Text('Resend Link'),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      try {
+                        await FirebaseAuth.instance.currentUser?.reload();
+                        final isEmailVerified = FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+                        if (isEmailVerified) {
+                          isVerified = true;
+                          if (dialogContext.mounted) {
+                            Navigator.pop(dialogContext); // Close dialog
+                          }
+                        } else {
+                          if (dialogContext.mounted) {
+                            AppAlert.showError(dialogContext, 'Email not verified yet. Please check your inbox and spam folders.');
+                          }
+                        }
+                      } catch (e) {
+                        if (dialogContext.mounted) {
+                          AppAlert.showError(dialogContext, 'Error checking verification status: $e');
+                        }
+                      }
+                    },
+                    child: const Text('I have verified'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      }
+
+      if (!isVerified) {
+        // If they somehow exited without verifying
+        return;
       }
 
       String? uploadedProfileUrl;

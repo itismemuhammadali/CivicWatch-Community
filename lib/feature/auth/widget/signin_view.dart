@@ -16,6 +16,8 @@ import 'package:cctv_app/feature/forgotPassword/pages/forgot_pasword.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:developer';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
 import 'package:cctv_app/feature/profile/pages/terms_and_policies.dart';
@@ -120,6 +122,16 @@ class _SigninViewState extends State<SigninView> {
 
       if (user == null || token == null) {
         throw Exception('Login succeeded but auth data is missing');
+      }
+
+      if (!user.emailVerified) {
+        await FirebaseAuth.instance.currentUser?.reload();
+        final isEmailVerified = FirebaseAuth.instance.currentUser?.emailVerified ?? false;
+        
+        if (!isEmailVerified) {
+          await user.sendEmailVerification();
+          throw Exception('Please verify your email address before logging in. A new verification link has been sent to your inbox.');
+        }
       }
 
       final dashboardType = _dashboardTypeFromRoleString(role);

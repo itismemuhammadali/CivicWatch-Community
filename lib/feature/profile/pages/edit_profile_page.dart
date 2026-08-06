@@ -167,12 +167,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
                       children: [
                         CircleAvatar(
                           radius: 40,
-                          backgroundColor: kTextfieldBlueColor,
+                          backgroundColor: kLightGreyColor,
                           backgroundImage: _pickedImageBytes != null
                               ? MemoryImage(_pickedImageBytes!)
                               : (AuthStorage.cachedProfileImageUrl != null && AuthStorage.cachedProfileImageUrl!.isNotEmpty
                                   ? NetworkImage(AuthStorage.cachedProfileImageUrl!)
-                                  : const AssetImage('assets/images/super_admin_avatar.png')) as ImageProvider,
+                                  : null),
+                          child: (_pickedImageBytes == null && (AuthStorage.cachedProfileImageUrl == null || AuthStorage.cachedProfileImageUrl!.isEmpty))
+                              ? const Icon(Icons.person, size: 40, color: kDarkGreyColor)
+                              : null,
                         ),
                         Container(
                           padding: const EdgeInsets.all(6),

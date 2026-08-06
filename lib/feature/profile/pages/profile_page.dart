@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:cctv_app/feature/profile/pages/user_followers_following_page.dart';
+import 'package:cctv_app/core/ads/admob_banner_widget.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -162,6 +163,20 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget _buildProfileHeader(BuildContext context) {
     final imageUrl = _profileImageUrl?.trim() ?? '';
 
+    final defaultAvatar = Container(
+      width: 62,
+      height: 62,
+      decoration: const BoxDecoration(
+        color: kLightGreyColor,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Icons.person,
+        size: 38,
+        color: kDarkGreyColor,
+      ),
+    );
+
     return Column(
       children: [
         ClipRRect(
@@ -173,19 +188,9 @@ class _ProfilePageState extends State<ProfilePage> {
                   height: 62,
                   fit: BoxFit.cover,
                   gaplessPlayback: true,
-                  errorBuilder: (_, _, _) => Image.asset(
-                    Assets.pngHighlight1Image,
-                    width: 62,
-                    height: 62,
-                    fit: BoxFit.cover,
-                  ),
+                  errorBuilder: (_, _, _) => defaultAvatar,
                 )
-              : Image.asset(
-                  Assets.pngHighlight1Image,
-                  width: 62,
-                  height: 62,
-                  fit: BoxFit.cover,
-                ),
+              : defaultAvatar,
         ),
         Space.vertical(8),
         Text(
@@ -272,7 +277,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: kWhiteColor,
-      bottomNavigationBar: const AdMobBannerWidget(),
+      bottomNavigationBar: AdMobBannerWidget(),
       body: Container(
         color: kWhiteColor,
         child: Column(

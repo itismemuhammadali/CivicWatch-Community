@@ -302,9 +302,12 @@ class _UserProfilePageState extends State<UserProfilePage> {
                       children: [
                         CircleAvatar(
                           radius: 28,
-                          backgroundColor: kTextfieldBlueColor,
+                          backgroundColor: kLightGreyColor,
                           backgroundImage: _buildProfileImage(),
                           onBackgroundImageError: (_, __) {},
+                          child: (_profileImageUrl == null || _profileImageUrl!.trim().isEmpty)
+                              ? const Icon(Icons.person, size: 28, color: kDarkGreyColor)
+                              : null,
                         ),
                         if (_isUploadingPhoto)
                           const CircularProgressIndicator(
@@ -729,6 +732,6 @@ class _UserProfilePageState extends State<UserProfilePage> {
       }
       return NetworkImage(profileImageUrl);
     }
-    return const AssetImage('assets/images/super_admin_avatar.png');
+    return null;
   }
 }

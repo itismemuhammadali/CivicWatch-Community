@@ -349,11 +349,12 @@ class _AddNewAdminPageState extends State<AddNewAdminPage> {
                               _uploadedProfileImage?.metaUrl != null &&
                                   _uploadedProfileImage!.metaUrl!.trim().isNotEmpty
                               ? NetworkImage(_uploadedProfileImage!.metaUrl!)
-                              : const AssetImage(
-                                      Assets.pngHighlight1Image,
-                                    )
-                                    as ImageProvider,
+                              : null,
                           onBackgroundImageError: (_, __) {},
+                          child: (_uploadedProfileImage?.metaUrl == null ||
+                                  _uploadedProfileImage!.metaUrl!.trim().isEmpty)
+                              ? const Icon(Icons.person, size: 42, color: kDarkGreyColor)
+                              : null,
                         ),
                         Positioned(
                           right: -2,

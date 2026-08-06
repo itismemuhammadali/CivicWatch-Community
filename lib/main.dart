@@ -48,18 +48,26 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return Sizer(
-      builder: (context, orientation, screenType) {
-        return MaterialApp(
-          navigatorKey: AppSessionManager.instance.navigatorKey,
-          debugShowCheckedModeBanner: false,
-          title: 'CCTV Mobile App',
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+    return Container(
+      color: Colors.black, // Dark background for the letterboxed area
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 500),
+          child: Sizer(
+            builder: (context, orientation, screenType) {
+              return MaterialApp(
+                navigatorKey: AppSessionManager.instance.navigatorKey,
+                debugShowCheckedModeBanner: false,
+                title: 'CCTV Mobile App',
+                theme: ThemeData(
+                  colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+                ),
+                home: const SessionGate(),
+              );
+            },
           ),
-          home: const SessionGate(),
-        );
-      },
+        ),
+      ),
     );
   }
 }
