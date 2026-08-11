@@ -26,7 +26,7 @@ class _AdMobBannerWidgetState extends State<AdMobBannerWidget> {
   }
 
   void _loadBannerAd() {
-    if (kIsWeb) return;
+    if (kIsWeb || !AdMobService.instance.isInitialized) return;
 
     final adUnitId = AdMobService.bannerAdUnitId;
     if (adUnitId.isEmpty) return;

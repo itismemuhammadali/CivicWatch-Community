@@ -36,7 +36,7 @@ Future<void> main() async {
   PostLinkManager.instance.initialize().catchError((e) {
     debugPrint('PostLinkManager init error: $e');
   });
-  AdMobService.instance.initialize().catchError((e) {
+  await AdMobService.instance.initialize().catchError((e) {
     debugPrint('AdMobService init error: $e');
   });
   runApp(const MyApp());

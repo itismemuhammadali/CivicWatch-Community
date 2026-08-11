@@ -11,9 +11,9 @@ class AdMobService {
 
   // Test Banner Ad Unit IDs provided by Google for development/testing
   static const String _testBannerAdUnitIdAndroid =
-      'ca-app-pub-3904725345774897/6300978111';
+      'ca-app-pub-3940256099942544/6300978111';
   static const String _testBannerAdUnitIdIOS =
-      'ca-app-pub-3904725345774897/2934735716';
+      'ca-app-pub-3940256099942544/2934735716';
 
   // Production Banner Ad Unit IDs (Update these once created in AdMob console)
   static String prodBannerAdUnitIdAndroid = '';
@@ -21,9 +21,9 @@ class AdMobService {
 
   // Test Interstitial Ad Unit IDs
   static const String _testInterstitialAdUnitIdAndroid =
-      'ca-app-pub-3904725345774897/1033173712';
+      'ca-app-pub-3940256099942544/1033173712';
   static const String _testInterstitialAdUnitIdIOS =
-      'ca-app-pub-3904725345774897/4411468910';
+      'ca-app-pub-3940256099942544/4411468910';
 
   // Production Interstitial Ad Unit IDs
   static String prodInterstitialAdUnitIdAndroid = '';
@@ -43,6 +43,9 @@ class AdMobService {
 
     try {
       await MobileAds.instance.initialize();
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(testDeviceIds: ['EMULATOR']),
+      );
       _isInitialized = true;
       debugPrint('AdMob SDK initialized successfully.');
     } catch (e) {

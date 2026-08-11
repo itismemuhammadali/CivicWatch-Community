@@ -416,9 +416,12 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      bottomNavigationBar: const AdMobBannerWidget(),
+      body: Column(
+        children: [
+          Padding(
           padding: const EdgeInsets.only(top: 10),
           child: Column(
             children: [
@@ -571,9 +574,9 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        const AdMobBannerWidget(),
       ],
-    );
+    ),
+  );
   }
 
   List<Widget> _buildFeedWithAds(List<_FeedPostItem> postItems) {
