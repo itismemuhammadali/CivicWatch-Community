@@ -304,7 +304,7 @@ class _UserProfilePageState extends State<UserProfilePage> {
                           radius: 28,
                           backgroundColor: kLightGreyColor,
                           backgroundImage: _buildProfileImage(),
-                          onBackgroundImageError: (_, __) {},
+                          onBackgroundImageError: _buildProfileImage() != null ? (_, __) {} : null,
                           child: (_profileImageUrl == null || _profileImageUrl!.trim().isEmpty)
                               ? const Icon(Icons.person, size: 28, color: kDarkGreyColor)
                               : null,
@@ -714,6 +714,55 @@ class _UserProfilePageState extends State<UserProfilePage> {
                             color: kWhiteColor,
                           ),
                         ),
+                ),
+              ),
+              Space.vertical(12),
+
+              // ✅ Delete Account Button (Apple Guideline 5.1.1)
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Delete Account'),
+                        content: const Text(
+                          'Are you sure you want to permanently delete your account and all associated profile data? This action cannot be undone.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('Cancel'),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                            onPressed: () async {
+                              Navigator.pop(ctx);
+                              await const AuthStorage().clear();
+                              if (context.mounted) {
+                                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                              }
+                            },
+                            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.delete_forever, color: Colors.red),
+                  label: Text(
+                    'Delete Account',
+                    style: context.semiBold.copyWith(
+                      fontSize: 14,
+                      color: Colors.red,
+                    ),
+                  ),
                 ),
               ),
               Space.vertical(20),

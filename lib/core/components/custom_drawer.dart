@@ -397,7 +397,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
             ),
             Space.vertical(6),
             Text(
-              'Share Cctv with your friends.',
+              'Share CommCTV with your friends.',
               style: context.normal.copyWith(color: kDarkGreyColor),
             ),
             Space.vertical(18),
@@ -447,7 +447,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
   Future<void> _shareInvite(String target) async {
     final shareText =
-        'Join me on Cctv and check out the latest community updates.\n\n'
+        'Join me on CommCTV and check out the latest community updates.\n\n'
         '${ApiConfig.baseUrl}';
 
     Navigator.pop(context);
@@ -490,7 +490,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           return;
         case 'system':
         default:
-          await Share.share(shareText, subject: 'Join me on Cctv');
+          await Share.share(shareText, subject: 'Join me on CommCTV');
       }
     } catch (_) {
       if (mounted) {

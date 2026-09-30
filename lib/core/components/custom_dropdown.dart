@@ -259,7 +259,7 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
           ),
         ),
         style: TextStyle(
-          fontSize: widget.screenWidth * 0.04,
+          fontSize: (widget.screenWidth * 0.04).clamp(14.0, 16.0),
           fontWeight: FontWeight.bold,
           color: AppColors.blackColor,
         ),
@@ -344,7 +344,7 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: widget.screenWidth * 0.04,
+                        fontSize: (widget.screenWidth * 0.04).clamp(14.0, 16.0),
                         fontWeight: FontWeight.bold,
                         color: !widget.enabled
                             ? Colors.grey
@@ -406,7 +406,7 @@ class _CustomDropdownState<T> extends State<CustomDropdown<T>> {
                     ),
                   ),
                   textStyle: TextStyle(
-                    fontSize: widget.screenWidth * 0.04,
+                    fontSize: (widget.screenWidth * 0.04).clamp(14.0, 16.0),
                     fontWeight: FontWeight.bold,
                     color: AppColors.blackColor,
                   ),

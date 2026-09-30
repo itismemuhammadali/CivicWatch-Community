@@ -26,7 +26,7 @@ class PostShareHelper {
     if (caseTitle.isNotEmpty) return caseTitle;
 
     final description = post.postDescription.trim();
-    if (description.isEmpty) return 'Check out this post on Cctv';
+    if (description.isEmpty) return 'Check out this post on CommCTV';
     if (description.length <= 60) return description;
     return '${description.substring(0, 60).trim()}...';
   }

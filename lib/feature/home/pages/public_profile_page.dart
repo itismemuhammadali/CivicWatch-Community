@@ -318,20 +318,60 @@ class _PublicProfilePageState extends State<PublicProfilePage> {
               ),
               Space.vertical(16),
 
-              // --- Follow / Profile Action Button ---
+              // --- Follow / Profile Action Button & Block Button ---
               if (!_isSelfProfile)
-                PrimaryButton(
-                  text: _isFollowingCurrent ? 'Unfollow' : 'Follow',
-                  isMainAxisSizeMin: true,
-                  onPressed: () {
-                    if (!_isFollowLoading) _toggleFollow();
-                  },
-                  height: 38,
-                  buttonColor: _isFollowingCurrent ? kWhiteColor : kPrimaryColor,
-                  textColor: _isFollowingCurrent ? kBlackColor : kWhiteColor,
-                  showBorder: _isFollowingCurrent,
-                  borderColor: _isFollowingCurrent ? kGreyColor : kTransparentColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 36),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    PrimaryButton(
+                      text: _isFollowingCurrent ? 'Unfollow' : 'Follow',
+                      isMainAxisSizeMin: true,
+                      onPressed: () {
+                        if (!_isFollowLoading) _toggleFollow();
+                      },
+                      height: 38,
+                      buttonColor: _isFollowingCurrent ? kWhiteColor : kPrimaryColor,
+                      textColor: _isFollowingCurrent ? kBlackColor : kWhiteColor,
+                      showBorder: _isFollowingCurrent,
+                      borderColor: _isFollowingCurrent ? kGreyColor : kTransparentColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 28),
+                    ),
+                    Space.horizontal(12),
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Block User'),
+                            content: Text('Are you sure you want to block ${widget.userName}? You will no longer see their posts or comments.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(backgroundColor: kRedColor),
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('${widget.userName} has been blocked.')),
+                                  );
+                                },
+                                child: const Text('Block', style: TextStyle(color: kWhiteColor)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.block, size: 16, color: kRedColor),
+                      label: Text('Block', style: context.semiBold.copyWith(color: kRedColor, fontSize: 13)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: kRedColor),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                    ),
+                  ],
                 )
               else
                 Container(

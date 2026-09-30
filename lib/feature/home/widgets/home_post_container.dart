@@ -1020,6 +1020,31 @@ class _HomePostContainerState extends State<HomePostContainer> {
                           if (value == 'report') {
                             _showReportBottomSheet(context, post);
                           }
+                          if (value == 'block') {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Block User'),
+                                content: Text('Are you sure you want to block ${post.authorDisplayName}? You will no longer see posts or comments from this user.'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(backgroundColor: kRedColor),
+                                    onPressed: () {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('${post.authorDisplayName} has been blocked.')),
+                                      );
+                                    },
+                                    child: const Text('Block', style: TextStyle(color: kWhiteColor)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
                         },
                         itemBuilder: (context) => [
                           _buildPostMenuItem(
@@ -1037,6 +1062,12 @@ class _HomePostContainerState extends State<HomePostContainer> {
                             value: 'report',
                             label: 'Report',
                             icon: Icons.report_gmailerrorred_rounded,
+                            color: kRedColor,
+                          ),
+                          _buildPostMenuItem(
+                            value: 'block',
+                            label: 'Block User',
+                            icon: Icons.block,
                             color: kRedColor,
                           ),
                         ],

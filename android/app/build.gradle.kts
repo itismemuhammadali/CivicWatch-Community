@@ -34,7 +34,7 @@ android {
     defaultConfig {
         applicationId = "com.urbansyncinn.commctv"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {
@@ -55,8 +55,9 @@ android {
 
     buildTypes {
         getByName("release") {
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (keystorePropertiesFile.exists() && keystoreProperties.containsKey("storeFile")) {
                 signingConfigs.getByName("release")
             } else {
