@@ -13,6 +13,7 @@ class VotingResultExample extends StatelessWidget {
   final int leftVotes;
   final int rightVotes;
   final int? totalVotesCount;
+  final bool isPollEnded;
 
   const VotingResultExample({
     super.key,
@@ -27,6 +28,7 @@ class VotingResultExample extends StatelessWidget {
     this.leftVotes = 0,
     this.rightVotes = 0,
     this.totalVotesCount,
+    this.isPollEnded = false,
   });
 
   @override
@@ -39,6 +41,10 @@ class VotingResultExample extends StatelessWidget {
     final leftPercentage = _buildPercentage(leftVotes, totalVotes);
     final rightPercentage = _buildPercentage(rightVotes, totalVotes);
 
+    final hasWinner = leftVotes != rightVotes;
+    final isLeftWinner = leftVotes > rightVotes;
+    final isRightWinner = rightVotes > leftVotes;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -49,7 +55,9 @@ class VotingResultExample extends StatelessWidget {
             progress: leftProgress,
             percentage: leftPercentage,
             isSelected: selectedOption == 'owner',
-            isWinner: leftVotes > rightVotes,
+            isWinner: isLeftWinner,
+            isLosing: isPollEnded && hasWinner && !isLeftWinner,
+            isPollEnded: isPollEnded,
             onTap: onLeftTap,
           ),
         ),
@@ -61,7 +69,9 @@ class VotingResultExample extends StatelessWidget {
             progress: rightProgress,
             percentage: rightPercentage,
             isSelected: selectedOption == 'defendant',
-            isWinner: rightVotes > leftVotes,
+            isWinner: isRightWinner,
+            isLosing: isPollEnded && hasWinner && !isRightWinner,
+            isPollEnded: isPollEnded,
             onTap: onRightTap,
           ),
         ),
@@ -81,23 +91,27 @@ class VotingResultExample extends StatelessWidget {
     required int percentage,
     required bool isSelected,
     required bool isWinner,
+    required bool isLosing,
+    required bool isPollEnded,
     required VoidCallback? onTap,
   }) {
     final hasVotes = percentage > 0;
     final fillColor = isSelected
         ? const Color(0xFF007BFF)
+        : (isPollEnded && isWinner)
+        ? const Color(0xFF007BFF).withValues(alpha: 0.85)
         : isWinner
         ? const Color(0xFF007BFF).withValues(alpha: 0.72)
-        : const Color(0xFF007BFF).withValues(alpha: 0.22);
-    final borderColor = isSelected || isWinner
-        ? const Color(0xFF007BFF)
-        : Colors.black26;
-    final labelColor = isSelected ? Colors.white : Colors.black87;
-    final textColor = isSelected ? Colors.white : Colors.black87;
-    final badgeBackground = isSelected
-        ? Colors.white.withValues(alpha: 0.18)
-        : const Color(0xFF007BFF).withValues(alpha: hasVotes ? 0.14 : 0.08);
-    final badgeForeground = isSelected ? Colors.white : const Color(0xFF007BFF);
+        : const Color(0xFF007BFF).withValues(alpha: isLosing ? 0.10 : 0.22);
+
+    final borderColor = (isPollEnded && isWinner)
+        ? Colors.amber.shade700
+        : (isSelected || isWinner
+            ? const Color(0xFF007BFF)
+            : (isLosing ? Colors.black12 : Colors.black26));
+
+    final labelColor = isSelected ? Colors.white : (isLosing ? Colors.black54 : Colors.black87);
+    final textColor = isSelected ? Colors.white : (isLosing ? Colors.black54 : Colors.black87);
 
     return GestureDetector(
       onTap: isSubmitting ? null : onTap,
@@ -109,7 +123,19 @@ class VotingResultExample extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: borderColor, width: 1.5),
+              border: Border.all(
+                color: borderColor,
+                width: (isPollEnded && isWinner) ? 2.2 : 1.5,
+              ),
+              boxShadow: (isPollEnded && isWinner)
+                  ? [
+                      BoxShadow(
+                        color: Colors.amber.shade400.withValues(alpha: 0.35),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
@@ -126,7 +152,7 @@ class VotingResultExample extends StatelessWidget {
                     ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
+                      horizontal: 10,
                       vertical: 6,
                     ),
                     child: Row(
@@ -156,17 +182,47 @@ class VotingResultExample extends StatelessWidget {
                             ),
                           ),
                         ],
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             text,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: textColor,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: (isPollEnded && isWinner)
+                                  ? FontWeight.bold
+                                  : FontWeight.w600,
                             ),
                           ),
                         ),
+                        if (isPollEnded && isWinner) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade700,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Text(
+                              '👑 WINNER',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ] else if (hasVotes || isPollEnded) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '$percentage%',
+                            style: TextStyle(
+                              color: labelColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

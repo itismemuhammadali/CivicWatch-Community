@@ -88,6 +88,7 @@ class AppNotificationItem {
       'U' => 'Notification',
       'A' => 'Alert',
       'P' => 'Post',
+      'V' => 'Verdict',
       _ => 'Notification',
     };
   }

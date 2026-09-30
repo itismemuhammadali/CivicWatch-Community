@@ -19,6 +19,7 @@ import 'package:cctv_app/core/utils/color_constants.dart';
 import 'package:cctv_app/feature/adminHome/pages/report_and_suspend.dart';
 import 'package:cctv_app/feature/home/widgets/comment_container.dart';
 import 'package:cctv_app/feature/home/widgets/vote_container.dart';
+import 'package:cctv_app/feature/home/widgets/verdict_voting_section.dart';
 import 'package:cctv_app/core/services/user_cache_service.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -1120,91 +1121,20 @@ class _HomePostContainerState extends State<HomePostContainer> {
               ),
               Space.vertical(15),
             ],
-            Builder(
-              builder: (context) {
-                final pollEndDateString = post.casePollCount?.pollEndDate;
-                final pollEndDate = pollEndDateString != null ? DateTime.tryParse(pollEndDateString) : null;
-                final isPollEnded = pollEndDate != null && DateTime.now().toUtc().isAfter(pollEndDate.toUtc());
-                
-                final bool isJuryGated = post.caseDetail?.isJuryPost == true && !_isFollowerOfCreator;
-                
-                String? countdownText;
-                if (pollEndDate != null) {
-                  if (isPollEnded) {
-                    countdownText = 'Poll Closed';
-                  } else {
-                    final diff = pollEndDate.toUtc().difference(DateTime.now().toUtc());
-                    if (diff.inDays > 0) {
-                      countdownText = '${diff.inDays} days left';
-                    } else if (diff.inHours > 0) {
-                      countdownText = '${diff.inHours} hours left';
-                    } else if (diff.inMinutes > 0) {
-                      countdownText = '${diff.inMinutes} mins left';
-                    } else {
-                      countdownText = 'Ending soon';
-                    }
-                  }
-                }
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (countdownText != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: isPollEnded ? kRedColor.withValues(alpha: 0.1) : kPrimaryColor.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: isPollEnded ? kRedColor : kPrimaryColor, width: 1),
-                              ),
-                              child: Text(
-                                countdownText,
-                                style: context.semiBold.copyWith(
-                                  fontSize: 12,
-                                  color: isPollEnded ? kRedColor : kPrimaryColor,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (_isCheckingFollowerStatus)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 20),
-                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                      )
-                    else
-                      VotingResultExample(
-                        leftLabel: 'A.',
-                        leftText: ownerName,
-                        rightLabel: 'B.',
-                        rightText: defendantName,
-                        leftVotes: post.casePollCount?.ownerCount ?? 0,
-                        rightVotes: post.casePollCount?.defendantCount ?? 0,
-                        totalVotesCount: post.casePollCount?.totalCount ?? 0,
-                        selectedOption: _selectedVote,
-                        isSubmitting: _isSubmittingVote,
-                        onLeftTap: (isPollEnded || isJuryGated) ? null : () => _confirmVote(
-                          context,
-                          post: post,
-                          selectedVote: 'owner',
-                          selectedName: ownerName,
-                        ),
-                        onRightTap: (isPollEnded || isJuryGated) ? null : () => _confirmVote(
-                          context,
-                          post: post,
-                          selectedVote: 'defendant',
-                          selectedName: defendantName,
-                        ),
-                      ),
-                  ],
-                );
-              }
+            VerdictVotingSection(
+              post: post,
+              ownerName: ownerName,
+              defendantName: defendantName,
+              selectedVote: _selectedVote,
+              isSubmittingVote: _isSubmittingVote,
+              isFollowerOfCreator: _isFollowerOfCreator,
+              isCheckingFollowerStatus: _isCheckingFollowerStatus,
+              onVote: (ctx, {required post, required selectedVote, required selectedName}) => _confirmVote(
+                ctx,
+                post: post,
+                selectedVote: selectedVote,
+                selectedName: selectedName,
+              ),
             ),
             Space.vertical(15),
             PrimaryButton(

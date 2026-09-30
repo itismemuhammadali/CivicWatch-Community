@@ -18,6 +18,7 @@ import 'package:cctv_app/core/network/services/user_case_service.dart';
 import 'package:cctv_app/core/network/services/user_service.dart';
 import 'package:cctv_app/core/storage/auth_storage.dart';
 import 'package:cctv_app/core/theme/app_colors.dart';
+import 'package:cctv_app/core/services/telnyx_sms_service.dart';
 import 'package:cctv_app/core/utils/assets.dart';
 import 'package:cctv_app/core/utils/color_constants.dart';
 import 'package:cctv_app/core/utils/validators.dart';
@@ -45,6 +46,10 @@ class _CreateCasePageState extends State<CreateCasePage> {
   bool _hasTriedSubmit = false;
   String? _selectedCategory;
   String? _selectedDefendant;
+  UserOption? _selectedDefendantUser;
+  bool _isInvitingViaSms = false;
+  final TextEditingController _invitePhoneController = TextEditingController();
+  final TextEditingController _inviteNameController = TextEditingController();
   String? _selectedViewCategory;
   String? _selectedAvailabilityType;
   bool _isLoadingCategories = true;
@@ -78,6 +83,8 @@ class _CreateCasePageState extends State<CreateCasePage> {
     _caseTitleController.dispose();
     _descriptionController.dispose();
     _resolutionController.dispose();
+    _invitePhoneController.dispose();
+    _inviteNameController.dispose();
     super.dispose();
   }
 
@@ -272,6 +279,10 @@ class _CreateCasePageState extends State<CreateCasePage> {
       _hasTriedSubmit = false;
       _selectedCategory = null;
       _selectedDefendant = null;
+      _selectedDefendantUser = null;
+      _isInvitingViaSms = false;
+      _invitePhoneController.clear();
+      _inviteNameController.clear();
       _selectedViewCategory = null;
       _uploadedMediaList.clear();
       _attachmentError = null;
@@ -473,6 +484,8 @@ class _CreateCasePageState extends State<CreateCasePage> {
     final defendantUserId = _selectedDefendant == null
         ? null
         : int.tryParse(_selectedDefendant!);
+    final invitedPhone = _isInvitingViaSms ? _invitePhoneController.text.trim() : null;
+    final invitedName = _isInvitingViaSms ? _inviteNameController.text.trim() : null;
 
     if (userId == null || accessToken == null || accessToken.trim().isEmpty) {
       AppAlert.showWarning(context, 'Session not found. Please login again.');
@@ -482,8 +495,8 @@ class _CreateCasePageState extends State<CreateCasePage> {
     if (caseCategoryId == null ||
         caseViewStatusId == null ||
         caseAvailableStatusId == null ||
-        defendantUserId == null) {
-      AppAlert.showWarning(context, 'Please select all required options.');
+        (defendantUserId == null && (invitedPhone == null || invitedPhone.isEmpty))) {
+      AppAlert.showWarning(context, 'Please select a defendant or provide an invite phone number.');
       return;
     }
 
@@ -510,7 +523,9 @@ class _CreateCasePageState extends State<CreateCasePage> {
           'case_category_id': caseCategoryId,
           'case_view_status_id': caseViewStatusId,
           'case_available_status_id': caseAvailableStatusId,
-          'tag_defendent_user_id': defendantUserId,
+          if (defendantUserId != null) 'tag_defendent_user_id': defendantUserId,
+          if (invitedPhone != null && invitedPhone.isNotEmpty) 'invited_phone_number': invitedPhone,
+          if (invitedName != null && invitedName.isNotEmpty) 'invited_defendant_name': invitedName,
           'meta_id': firstMedia?['meta_id'],
           'meta_type_id': firstMedia?['meta_type_id'],
           'meta_url': firstMedia?['meta_url'],
@@ -522,8 +537,22 @@ class _CreateCasePageState extends State<CreateCasePage> {
         },
       );
 
+      if (invitedPhone != null && invitedPhone.isNotEmpty) {
+        final creatorName = await const AuthStorage().readUserFullName() ?? 'Someone';
+        TelnyxSmsService.instance.sendCollaborationInvite(
+          toNumber: invitedPhone,
+          creatorName: creatorName,
+          caseTitle: _caseTitleController.text.trim(),
+        );
+      }
+
       if (!mounted) return;
-      AppAlert.showSuccess(context, 'Case uploaded successfully');
+      AppAlert.showSuccess(
+        context,
+        invitedPhone != null && invitedPhone.isNotEmpty
+            ? 'Case uploaded and invite SMS sent via Telnyx!'
+            : 'Case uploaded successfully',
+      );
       _clearForm();
       widget.onCaseCreated?.call();
     } on ApiException catch (e) {
@@ -634,79 +663,272 @@ class _CreateCasePageState extends State<CreateCasePage> {
                     ),
                     Space.vertical(16),
                     
-                    // ✅ Tag User Defendants
-                    Text(
-                      "Tag user defendants",
-                      style: context.bold.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Space.vertical(8),
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Autocomplete<UserOption>(
-                          optionsBuilder: (TextEditingValue textEditingValue) {
-                            if (textEditingValue.text.isEmpty) {
-                              return const Iterable<UserOption>.empty();
-                            }
-                            return _defendants.where((user) =>
-                                user.displayName.toLowerCase().contains(textEditingValue.text.toLowerCase()));
-                          },
-                          displayStringForOption: (UserOption option) => option.displayName,
-                          onSelected: (UserOption selection) {
+                    // ✅ Tag User Defendants or Invite via SMS
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          _isInvitingViaSms ? "Invite defendant via SMS" : "Tag user defendants",
+                          style: context.bold.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () {
                             setState(() {
-                              _selectedDefendant = '${selection.userId}';
+                              _isInvitingViaSms = !_isInvitingViaSms;
+                              _selectedDefendant = null;
+                              _selectedDefendantUser = null;
                             });
                           },
-                          fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
-                            return CustomTextField(
-                              controller: textEditingController,
-                              focusNode: focusNode,
-                              hintText: _isLoadingDefendants ? "Loading defendants..." : "Search and tag defendant",
+                          icon: Icon(
+                            _isInvitingViaSms ? Icons.person_search : Icons.sms_outlined,
+                            size: 16,
+                            color: kPrimaryColor,
+                          ),
+                          label: Text(
+                            _isInvitingViaSms ? "Tag App User" : "Invite via SMS",
+                            style: const TextStyle(
+                              color: kPrimaryColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Space.vertical(6),
+                    if (_isInvitingViaSms) ...[
+                      // SMS Phone Invitation UI
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: kPrimaryColor.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: kPrimaryColor.withValues(alpha: 0.2)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.mark_email_read_outlined, size: 18, color: kPrimaryColor),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    "User not on CommCTV? Enter their phone number to send an automated Telnyx invite SMS.",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: kDarkGreyColor,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Space.vertical(10),
+                            CustomTextField(
+                              controller: _invitePhoneController,
+                              hintText: "+1234567890 (Include country code)",
                               hintTextColor: kDarkGreyColor,
-                              textStyle: TextStyle(
-                                fontSize: 16,
+                              prefix: const Icon(Icons.phone_outlined, color: kDarkGreyColor),
+                              keyboardType: TextInputType.phone,
+                              textStyle: const TextStyle(
+                                fontSize: 15,
                                 fontWeight: FontWeight.bold,
                                 color: kBlackColor,
                               ),
-                            );
-                          },
-                          optionsViewBuilder: (context, onSelected, options) {
-                            return Align(
-                              alignment: Alignment.topLeft,
-                              child: Material(
-                                elevation: 4.0,
-                                borderRadius: BorderRadius.circular(8),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxWidth: constraints.biggest.width,
-                                    maxHeight: 200,
-                                  ),
-                                  child: ListView.builder(
-                                    padding: EdgeInsets.zero,
-                                    shrinkWrap: true,
-                                    itemCount: options.length,
-                                    itemBuilder: (context, index) {
-                                      final option = options.elementAt(index);
-                                      return ListTile(
-                                        title: Text(
-                                          option.displayName,
-                                          style: TextStyle(color: AppColors.blackColor),
+                            ),
+                            Space.vertical(8),
+                            CustomTextField(
+                              controller: _inviteNameController,
+                              hintText: "Defendant's Name (Optional)",
+                              hintTextColor: kDarkGreyColor,
+                              prefix: const Icon(Icons.person_outline, color: kDarkGreyColor),
+                              textStyle: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: kBlackColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else ...[
+                      // Registered User Tagging UI with Circular DP
+                      if (_selectedDefendantUser != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: kPrimaryColor.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: kPrimaryColor.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundColor: kPrimaryColor.withValues(alpha: 0.2),
+                                backgroundImage: (_selectedDefendantUser!.profileImageUrl != null &&
+                                        _selectedDefendantUser!.profileImageUrl!.isNotEmpty)
+                                    ? NetworkImage(_selectedDefendantUser!.profileImageUrl!)
+                                    : null,
+                                child: (_selectedDefendantUser!.profileImageUrl == null ||
+                                        _selectedDefendantUser!.profileImageUrl!.isEmpty)
+                                    ? Text(
+                                        _selectedDefendantUser!.initials,
+                                        style: const TextStyle(
+                                          color: kPrimaryColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
                                         ),
-                                        onTap: () {
-                                          onSelected(option);
-                                        },
-                                      );
-                                    },
-                                  ),
+                                      )
+                                    : null,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _selectedDefendantUser!.displayName,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: kBlackColor,
+                                      ),
+                                    ),
+                                    if (_selectedDefendantUser!.email.isNotEmpty)
+                                      Text(
+                                        _selectedDefendantUser!.email,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: kDarkGreyColor,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                  ],
                                 ),
                               ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                                tooltip: 'Remove defendant',
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedDefendant = null;
+                                    _selectedDefendantUser = null;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      ] else ...[
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            return Autocomplete<UserOption>(
+                              optionsBuilder: (TextEditingValue textEditingValue) {
+                                if (textEditingValue.text.isEmpty) {
+                                  return const Iterable<UserOption>.empty();
+                                }
+                                return _defendants.where((user) =>
+                                    user.displayName.toLowerCase().contains(textEditingValue.text.toLowerCase()));
+                              },
+                              displayStringForOption: (UserOption option) => option.displayName,
+                              onSelected: (UserOption selection) {
+                                setState(() {
+                                  _selectedDefendant = '${selection.userId}';
+                                  _selectedDefendantUser = selection;
+                                });
+                              },
+                              fieldViewBuilder: (context, textEditingController, focusNode, onFieldSubmitted) {
+                                return CustomTextField(
+                                  controller: textEditingController,
+                                  focusNode: focusNode,
+                                  hintText: _isLoadingDefendants ? "Loading defendants..." : "Search and tag defendant",
+                                  hintTextColor: kDarkGreyColor,
+                                  prefix: const Icon(Icons.person_search, color: kDarkGreyColor),
+                                  textStyle: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: kBlackColor,
+                                  ),
+                                );
+                              },
+                              optionsViewBuilder: (context, onSelected, options) {
+                                return Align(
+                                  alignment: Alignment.topLeft,
+                                  child: Material(
+                                    elevation: 6.0,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxWidth: constraints.biggest.width,
+                                        maxHeight: 250,
+                                      ),
+                                      child: ListView.separated(
+                                        padding: const EdgeInsets.symmetric(vertical: 4),
+                                        shrinkWrap: true,
+                                        itemCount: options.length,
+                                        separatorBuilder: (_, __) => const Divider(height: 1),
+                                        itemBuilder: (context, index) {
+                                          final option = options.elementAt(index);
+                                          final hasDp = option.profileImageUrl != null &&
+                                              option.profileImageUrl!.isNotEmpty;
+
+                                          return ListTile(
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                                            leading: CircleAvatar(
+                                              radius: 20,
+                                              backgroundColor: kPrimaryColor.withValues(alpha: 0.15),
+                                              backgroundImage: hasDp
+                                                  ? NetworkImage(option.profileImageUrl!)
+                                                  : null,
+                                              child: !hasDp
+                                                  ? Text(
+                                                      option.initials,
+                                                      style: const TextStyle(
+                                                        color: kPrimaryColor,
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 13,
+                                                      ),
+                                                    )
+                                                  : null,
+                                            ),
+                                            title: Text(
+                                              option.displayName,
+                                              style: const TextStyle(
+                                                color: AppColors.blackColor,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            subtitle: option.email.isNotEmpty
+                                                ? Text(
+                                                    option.email,
+                                                    style: TextStyle(
+                                                      color: kDarkGreyColor,
+                                                      fontSize: 12,
+                                                    ),
+                                                    overflow: TextOverflow.ellipsis,
+                                                  )
+                                                : null,
+                                            onTap: () {
+                                              onSelected(option);
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
                             );
                           },
-                        );
-                      }
-                    ),
+                        ),
+                      ],
+                    ],
                     if (_defendantLoadError != null)
                       _buildInlineError(_defendantLoadError!),
                     Space.vertical(16),

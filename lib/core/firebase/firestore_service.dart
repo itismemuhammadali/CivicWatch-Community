@@ -715,6 +715,71 @@ class FirestoreDataService {
     });
   }
 
+  Future<void> checkAndDeliverVerdictNotification({
+    required int caseId,
+    required String postTitle,
+    required int creatorId,
+    required int? defendantId,
+    required String winnerName,
+    required int winnerPercentage,
+    required bool isTie,
+  }) async {
+    try {
+      final postDocRef = _db.collection('posts').doc('$caseId');
+      final postSnapshot = await postDocRef.get();
+      if (!postSnapshot.exists) return;
+      final postData = postSnapshot.data() ?? {};
+      if (postData['verdict_notified'] == true) {
+        return; // Already notified
+      }
+
+      await postDocRef.update({'verdict_notified': true});
+
+      final nowIso = DateTime.now().toUtc().toIso8601String();
+      final detailMessage = isTie
+          ? 'The voting has concluded for "$postTitle". It ended in a tie!'
+          : 'The jury has reached a verdict for "$postTitle". $winnerName won with $winnerPercentage% of votes!';
+
+      final metaJson = jsonEncode({
+        'case_id': caseId,
+        'winner_name': winnerName,
+        'winner_percentage': winnerPercentage,
+        'is_tie': isTie,
+        'timestamp': nowIso,
+      });
+
+      if (creatorId > 0) {
+        final creatorNotifId = _generateId();
+        await _db.collection('notifications').doc('$creatorNotifId').set({
+          'notification_id': creatorNotifId,
+          'user_id': creatorId,
+          'notification_type': 'V',
+          'view_type': 'RN',
+          'notification_detail': detailMessage,
+          'notification_meta': metaJson,
+          'created_at': nowIso,
+          'is_read': 0,
+        });
+      }
+
+      if (defendantId != null && defendantId > 0 && defendantId != creatorId) {
+        final defNotifId = _generateId();
+        await _db.collection('notifications').doc('$defNotifId').set({
+          'notification_id': defNotifId,
+          'user_id': defendantId,
+          'notification_type': 'V',
+          'view_type': 'RN',
+          'notification_detail': detailMessage,
+          'notification_meta': metaJson,
+          'created_at': nowIso,
+          'is_read': 0,
+        });
+      }
+    } catch (e) {
+      debugPrint('checkAndDeliverVerdictNotification error: $e');
+    }
+  }
+
   Future<List<PendingCase>> getPendingCasesByUserId(int userId) async {
     final query = await _db
         .collection('pending_cases')
@@ -770,8 +835,12 @@ class FirestoreDataService {
     data['case_id'] = caseId;
     data['case_created_at'] = DateTime.now().toUtc().toIso8601String();
 
-    bool isTagged = data['tag_defendent_user_id'] != null;
-    data['status'] = isTagged ? 'PENDING_DEFENDANT_APPROVAL' : 'ACTIVE';
+    final hasTaggedUser = data['tag_defendent_user_id'] != null;
+    final hasSmsInvite = data['invited_phone_number'] != null;
+    final isTagged = hasTaggedUser || hasSmsInvite;
+    data['status'] = hasTaggedUser
+        ? 'PENDING_DEFENDANT_APPROVAL'
+        : (hasSmsInvite ? 'PENDING_SMS_INVITE' : 'ACTIVE');
 
     // Write to cases
     await _db.collection('cases').doc('$caseId').set(data);
@@ -792,7 +861,7 @@ class FirestoreDataService {
     }
     await _db.collection('pending_cases').doc('$caseId').set(pendingData);
 
-    if (isTagged) {
+    if (hasTaggedUser) {
       // Send notification to tagged user
       final notificationId = _generateId();
       await _db.collection('notifications').doc('$notificationId').set({
@@ -807,6 +876,10 @@ class FirestoreDataService {
         'is_read': 0,
       });
       return; // Stop here, do not publish to posts yet
+    }
+
+    if (hasSmsInvite) {
+      return; // Stop here, waits for external invitee
     }
 
     // If case is public, publish as a post!
@@ -1133,19 +1206,24 @@ class FirestoreDataService {
 
   Future<List<UserOption>> getAllUsers() async {
     final query = await _db.collection('users').get();
-    // We map them to UserOption. We need to handle userId (int vs string).
-    // Let's assume user document has an integer user_id.
     return query.docs.map((doc) {
       final data = doc.data();
       final userIdVal = data['user_id'] ?? data['userId'];
       final userId = userIdVal is int
           ? userIdVal
           : int.tryParse('$userIdVal') ?? doc.id.hashCode;
+      final profileImg = data['profileImageUrl'] ??
+          data['profile_image_url'] ??
+          data['avatar_url'] ??
+          data['avatarUrl'] ??
+          data['photoUrl'];
+
       return UserOption(
         userId: userId,
         firstName: data['first_name'] ?? data['firstName'] ?? '',
         lastName: data['last_name'] ?? data['lastName'] ?? '',
-        email: data['user_email'] ?? data['email'],
+        email: data['user_email'] ?? data['email'] ?? '',
+        profileImageUrl: profileImg is String && profileImg.isNotEmpty ? profileImg : null,
       );
     }).toList();
   }

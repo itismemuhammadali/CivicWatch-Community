@@ -3,10 +3,8 @@ import 'package:cctv_app/core/firebase/firebase_options.dart';
 import 'package:cctv_app/core/session/app_session_manager.dart';
 import 'package:cctv_app/core/network/api_config.dart';
 import 'package:cctv_app/feature/session/session_gate.dart';
+import 'package:cctv_app/core/services/remote_config_service.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:sizer/sizer.dart';
@@ -29,6 +27,9 @@ Future<void> main() async {
         //   debugPrint('Emulator setup error: $e');
         // }
       }
+      await RemoteConfigService.instance.initialize().catchError((e) {
+        debugPrint('RemoteConfigService init error: $e');
+      });
     } catch (e) {
       debugPrint('Firebase initialization failed: $e');
     }

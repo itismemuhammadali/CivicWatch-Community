@@ -120,6 +120,14 @@ class AuthStorage {
   Future<String?> readFirebaseUid() =>
       _storage.read(key: AuthStorageKeys.firebaseUid);
 
+  Future<String?> readUserFullName() async {
+    final first = await readFirstName();
+    final last = await readLastName();
+    final parts = [first, last].whereType<String>().where((s) => s.trim().isNotEmpty).toList();
+    if (parts.isEmpty) return null;
+    return parts.join(' ').trim();
+  }
+
   Future<void> hydrateCache() async {
     _cachedUserId = await readUserId();
     _cachedFirstName = await readFirstName();

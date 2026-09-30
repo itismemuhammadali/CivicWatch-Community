@@ -1,3 +1,4 @@
+import 'package:cctv_app/core/services/remote_config_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -53,38 +54,75 @@ class AdMobService {
     }
   }
 
-  /// Returns the appropriate Banner Ad Unit ID based on platform & debug mode
+  /// Returns whether banner ads are enabled by the system (Remote Config)
+  static bool get areBannerAdsEnabled =>
+      RemoteConfigService.instance.bannerAdsEnabled;
+
+  /// Returns the appropriate Banner Ad Unit ID based on platform & system configuration.
+  /// If the system has NOT enabled banner ads or no valid ID is configured/pushed,
+  /// it returns an empty string, meaning no ad should be requested or displayed.
   static String get bannerAdUnitId {
     if (kIsWeb) return '';
 
+    // If banner ads are not enabled by the system, return empty so nothing loads
+    if (!RemoteConfigService.instance.bannerAdsEnabled) {
+      return '';
+    }
+
+    final isTestMode = RemoteConfigService.instance.adMobTestMode;
+
     if (defaultTargetPlatform == TargetPlatform.android) {
-      if (kDebugMode || prodBannerAdUnitIdAndroid.isEmpty) {
+      final remoteId = RemoteConfigService.instance.admobBannerUnitIdAndroid;
+      final configuredId =
+          remoteId.isNotEmpty ? remoteId : prodBannerAdUnitIdAndroid;
+      if (configuredId.isNotEmpty) {
+        return configuredId;
+      }
+      if (isTestMode) {
         return _testBannerAdUnitIdAndroid;
       }
-      return prodBannerAdUnitIdAndroid;
+      return '';
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      if (kDebugMode || prodBannerAdUnitIdIOS.isEmpty) {
+      final remoteId = RemoteConfigService.instance.admobBannerUnitIdIOS;
+      final configuredId =
+          remoteId.isNotEmpty ? remoteId : prodBannerAdUnitIdIOS;
+      if (configuredId.isNotEmpty) {
+        return configuredId;
+      }
+      if (isTestMode) {
         return _testBannerAdUnitIdIOS;
       }
-      return prodBannerAdUnitIdIOS;
+      return '';
     }
     return '';
   }
 
-  /// Returns the appropriate Interstitial Ad Unit ID based on platform & debug mode
+  /// Returns the appropriate Interstitial Ad Unit ID based on platform & system configuration
   static String get interstitialAdUnitId {
     if (kIsWeb) return '';
 
+    if (!RemoteConfigService.instance.bannerAdsEnabled) {
+      return '';
+    }
+
+    final isTestMode = RemoteConfigService.instance.adMobTestMode;
+
     if (defaultTargetPlatform == TargetPlatform.android) {
-      if (kDebugMode || prodInterstitialAdUnitIdAndroid.isEmpty) {
+      if (prodInterstitialAdUnitIdAndroid.isNotEmpty) {
+        return prodInterstitialAdUnitIdAndroid;
+      }
+      if (isTestMode) {
         return _testInterstitialAdUnitIdAndroid;
       }
-      return prodInterstitialAdUnitIdAndroid;
+      return '';
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
-      if (kDebugMode || prodInterstitialAdUnitIdIOS.isEmpty) {
+      if (prodInterstitialAdUnitIdIOS.isNotEmpty) {
+        return prodInterstitialAdUnitIdIOS;
+      }
+      if (isTestMode) {
         return _testInterstitialAdUnitIdIOS;
       }
-      return prodInterstitialAdUnitIdIOS;
+      return '';
     }
     return '';
   }
