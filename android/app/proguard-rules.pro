@@ -13,11 +13,10 @@
 -dontwarn com.google.android.play.core.**
 -dontwarn io.flutter.embedding.engine.deferredcomponents.**
 
-# Firebase & Google Services
--keep class com.google.firebase.** { *; }
--keep class com.google.android.gms.** { *; }
-
 # Native Methods
 -keepclasseswithmembernames class * {
     native <methods>;
 }
+
+# AndroidX Activity & EdgeToEdge
+-keep class androidx.activity.** { *; }

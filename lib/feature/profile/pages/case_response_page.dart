@@ -209,6 +209,8 @@ class _CaseResponsePageState extends State<CaseResponsePage> {
       final picker = ImagePicker();
       final file = await picker.pickImage(
         source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
         imageQuality: 85,
       );
       if (file == null || !mounted) return;
@@ -229,7 +231,12 @@ class _CaseResponsePageState extends State<CaseResponsePage> {
   Future<void> _pickImageFromGallery() async {
     try {
       final picker = ImagePicker();
-      final file = await picker.pickImage(source: ImageSource.gallery);
+      final file = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
       if (file == null || !mounted) return;
       final fileBytes = await file.readAsBytes();
 

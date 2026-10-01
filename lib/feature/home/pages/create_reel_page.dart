@@ -145,6 +145,8 @@ class _CreateReelPageState extends State<CreateReelPage> {
       final picker = ImagePicker();
       final file = await picker.pickImage(
         source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
         imageQuality: 85,
       );
       if (file == null || !mounted) return;
@@ -161,7 +163,12 @@ class _CreateReelPageState extends State<CreateReelPage> {
 
     try {
       final picker = ImagePicker();
-      final file = await picker.pickImage(source: ImageSource.gallery);
+      final file = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
       if (file == null || !mounted) return;
 
       await _uploadMedia(file, isVideo: false);
