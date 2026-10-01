@@ -203,6 +203,12 @@ class _CreateCasePageState extends State<CreateCasePage> {
     }
   }
 
+  static const List<GeneralParameterOption> _defaultAvailabilityTypes = [
+    GeneralParameterOption(paramDetailId: 9, paramHeader: 'CASE_AVAILIBILITY_TYPE', paramLabel: '24 hours', paramValue: '24H'),
+    GeneralParameterOption(paramDetailId: 10, paramHeader: 'CASE_AVAILIBILITY_TYPE', paramLabel: '48 hours', paramValue: '48H'),
+    GeneralParameterOption(paramDetailId: 11, paramHeader: 'CASE_AVAILIBILITY_TYPE', paramLabel: '72 hours', paramValue: '72H'),
+  ];
+
   Future<void> _loadAvailabilityTypes() async {
     setState(() {
       _isLoadingAvailabilityTypes = true;
@@ -216,11 +222,32 @@ class _CreateCasePageState extends State<CreateCasePage> {
         accessToken: accessToken,
       );
       if (availabilityTypes.isEmpty) {
-        availabilityTypes = const [
-          GeneralParameterOption(paramDetailId: 9, paramHeader: 'CASE_AVAILIBILITY_TYPE', paramLabel: '24 hours', paramValue: '24H'),
-          GeneralParameterOption(paramDetailId: 10, paramHeader: 'CASE_AVAILIBILITY_TYPE', paramLabel: 'week', paramValue: 'WK'),
-          GeneralParameterOption(paramDetailId: 11, paramHeader: 'CASE_AVAILIBILITY_TYPE', paramLabel: 'Month', paramValue: 'MN'),
-        ];
+        availabilityTypes = _defaultAvailabilityTypes;
+      } else {
+        // Map legacy options ('week', 'Month') to 48 hours & 72 hours
+        availabilityTypes = availabilityTypes.map((option) {
+          if (option.paramDetailId == 10 ||
+              option.paramLabel.toLowerCase() == 'week' ||
+              option.paramValue == 'WK') {
+            return const GeneralParameterOption(
+              paramDetailId: 10,
+              paramHeader: 'CASE_AVAILIBILITY_TYPE',
+              paramLabel: '48 hours',
+              paramValue: '48H',
+            );
+          }
+          if (option.paramDetailId == 11 ||
+              option.paramLabel.toLowerCase() == 'month' ||
+              option.paramValue == 'MN') {
+            return const GeneralParameterOption(
+              paramDetailId: 11,
+              paramHeader: 'CASE_AVAILIBILITY_TYPE',
+              paramLabel: '72 hours',
+              paramValue: '72H',
+            );
+          }
+          return option;
+        }).toList();
       }
       if (!mounted) return;
       setState(() {
@@ -229,11 +256,7 @@ class _CreateCasePageState extends State<CreateCasePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _availabilityTypes = const [
-          GeneralParameterOption(paramDetailId: 9, paramHeader: 'CASE_AVAILIBILITY_TYPE', paramLabel: '24 hours', paramValue: '24H'),
-          GeneralParameterOption(paramDetailId: 10, paramHeader: 'CASE_AVAILIBILITY_TYPE', paramLabel: 'week', paramValue: 'WK'),
-          GeneralParameterOption(paramDetailId: 11, paramHeader: 'CASE_AVAILIBILITY_TYPE', paramLabel: 'Month', paramValue: 'MN'),
-        ];
+        _availabilityTypes = _defaultAvailabilityTypes;
       });
     } finally {
       if (!mounted) return;
@@ -270,6 +293,10 @@ class _CreateCasePageState extends State<CreateCasePage> {
       }
     }
 
+    if (selectedValue == '24 hours' || selectedValue == '24H') return 9;
+    if (selectedValue == '48 hours' || selectedValue == '48H') return 10;
+    if (selectedValue == '72 hours' || selectedValue == '72H') return 11;
+
     return null;
   }
 
@@ -284,6 +311,7 @@ class _CreateCasePageState extends State<CreateCasePage> {
       _invitePhoneController.clear();
       _inviteNameController.clear();
       _selectedViewCategory = null;
+      _selectedAvailabilityType = null;
       _uploadedMediaList.clear();
       _attachmentError = null;
       isMarkAsRead = false;
@@ -315,8 +343,29 @@ class _CreateCasePageState extends State<CreateCasePage> {
                 Space.vertical(12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.videocam_rounded, color: kPrimaryColor),
+                  title: const Text('Record video'),
+                  subtitle: const Text('Directly record a video using camera'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _recordVideoFromCamera();
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.camera_alt_rounded, color: kPrimaryColor),
+                  title: const Text('Take photo'),
+                  subtitle: const Text('Directly take a photo using camera'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _captureImageFromCamera();
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.image_outlined),
                   title: const Text('Image from gallery'),
+                  subtitle: const Text('Choose an image from gallery'),
                   onTap: () async {
                     Navigator.pop(context);
                     await _pickImageFromGallery();
@@ -324,28 +373,64 @@ class _CreateCasePageState extends State<CreateCasePage> {
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.videocam_outlined),
+                  leading: const Icon(Icons.video_library_outlined),
                   title: const Text('Video from gallery'),
+                  subtitle: const Text('Choose a video from gallery'),
                   onTap: () async {
                     Navigator.pop(context);
                     await _pickVideoFromGallery();
                   },
                 ),
-                // ListTile(
-                //   contentPadding: EdgeInsets.zero,
-                //   leading: const Icon(Icons.folder_open_outlined),
-                //   title: const Text('Document from device'),
-                //   onTap: () async {
-                //     Navigator.pop(context);
-                //     await _pickDocumentFromFiles();
-                //   },
-                // ),
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _recordVideoFromCamera() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickVideo(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+      if (file == null || !mounted) return;
+      final fileBytes = await file.readAsBytes();
+
+      await _uploadSelectedFile(
+        filePath: file.path,
+        fileName: file.name,
+        isImage: false,
+        fileBytes: fileBytes,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppAlert.showError(context, 'Failed to record video: $e');
+    }
+  }
+
+  Future<void> _captureImageFromCamera() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (file == null || !mounted) return;
+      final fileBytes = await file.readAsBytes();
+
+      await _uploadSelectedFile(
+        filePath: file.path,
+        fileName: file.name,
+        isImage: true,
+        fileBytes: fileBytes,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppAlert.showError(context, 'Failed to take photo: $e');
+    }
   }
 
   Future<void> _pickImageFromGallery() async {
@@ -578,6 +663,38 @@ class _CreateCasePageState extends State<CreateCasePage> {
           message,
           style: context.normal.copyWith(color: kRedColor, fontSize: 12),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAvailabilityOption(String label) {
+    final isSelected = _selectedAvailabilityType == label;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () {
+        setState(() {
+          _toggleAvailability(label);
+        });
+      },
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Checkbox(
+            value: isSelected,
+            onChanged: (value) {
+              setState(() {
+                _toggleAvailability(label);
+              });
+            },
+          ),
+          Text(
+            label,
+            style: context.bold.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1073,7 +1190,7 @@ class _CreateCasePageState extends State<CreateCasePage> {
                       _buildInlineError('Please select post visibility'),
                     Space.vertical(16),
                     
-                    // ✅ Post publicly available (24 Hours, Week, Month)
+                    // ✅ Post publicly available (24 Hours, 48 Hours, 72 Hours)
                     Text(
                       "Post publicly available",
                       style: context.bold.copyWith(
@@ -1088,55 +1205,13 @@ class _CreateCasePageState extends State<CreateCasePage> {
                         style: context.normal.copyWith(color: kDarkGreyColor),
                       )
                     else
-                      Row(
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
                         children: [
-                          Checkbox(
-                            value: _selectedAvailabilityType == '24 hours',
-                            onChanged: (value) {
-                              setState(() {
-                                _toggleAvailability('24 hours');
-                              });
-                            },
-                          ),
-                          Text(
-                            "24 hours",
-                            style: context.bold.copyWith(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Space.horizontal(12),
-                          Checkbox(
-                            value: _selectedAvailabilityType == 'week',
-                            onChanged: (value) {
-                              setState(() {
-                                _toggleAvailability('week');
-                              });
-                            },
-                          ),
-                          Text(
-                            "week",
-                            style: context.bold.copyWith(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Space.horizontal(12),
-                          Checkbox(
-                            value: _selectedAvailabilityType == 'Month',
-                            onChanged: (value) {
-                              setState(() {
-                                _toggleAvailability('Month');
-                              });
-                            },
-                          ),
-                          Text(
-                            "Month",
-                            style: context.bold.copyWith(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          _buildAvailabilityOption('24 hours'),
+                          _buildAvailabilityOption('48 hours'),
+                          _buildAvailabilityOption('72 hours'),
                         ],
                       ),
                     if (_availabilityTypeLoadError != null)

@@ -45,8 +45,8 @@ final List<Map<String, dynamic>> parameters = [
 
   // CASE_AVAILIBILITY_TYPE
   {'param_detail_id': 9, 'param_header': 'CASE_AVAILIBILITY_TYPE', 'param_label': '24 hours', 'param_value': '24H'},
-  {'param_detail_id': 10, 'param_header': 'CASE_AVAILIBILITY_TYPE', 'param_label': 'week', 'param_value': 'WK'},
-  {'param_detail_id': 11, 'param_header': 'CASE_AVAILIBILITY_TYPE', 'param_label': 'Month', 'param_value': 'MN'},
+  {'param_detail_id': 10, 'param_header': 'CASE_AVAILIBILITY_TYPE', 'param_label': '48 hours', 'param_value': '48H'},
+  {'param_detail_id': 11, 'param_header': 'CASE_AVAILIBILITY_TYPE', 'param_label': '72 hours', 'param_value': '72H'},
 ];
 
 Future<void> main() async {

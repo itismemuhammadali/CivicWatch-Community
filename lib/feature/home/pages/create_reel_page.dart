@@ -74,8 +74,29 @@ class _CreateReelPageState extends State<CreateReelPage> {
                 Space.vertical(12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.videocam_rounded, color: kPrimaryColor),
+                  title: const Text('Record video'),
+                  subtitle: const Text('Directly record a video using camera'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _recordVideo();
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.camera_alt_rounded, color: kPrimaryColor),
+                  title: const Text('Take photo'),
+                  subtitle: const Text('Directly take a photo using camera'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _captureImage();
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.image_outlined),
                   title: const Text('Image from gallery'),
+                  subtitle: const Text('Choose an image from gallery'),
                   onTap: () async {
                     Navigator.pop(context);
                     await _pickImage();
@@ -83,8 +104,9 @@ class _CreateReelPageState extends State<CreateReelPage> {
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.videocam_outlined),
+                  leading: const Icon(Icons.video_library_outlined),
                   title: const Text('Video from gallery'),
+                  subtitle: const Text('Choose a video from gallery'),
                   onTap: () async {
                     Navigator.pop(context);
                     await _pickVideo();
@@ -96,6 +118,42 @@ class _CreateReelPageState extends State<CreateReelPage> {
         );
       },
     );
+  }
+
+  Future<void> _recordVideo() async {
+    if (_isUploading || _isSubmitting) return;
+
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickVideo(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+      if (file == null || !mounted) return;
+
+      await _uploadMedia(file, isVideo: true);
+    } catch (e) {
+      if (!mounted) return;
+      AppAlert.showError(context, 'Failed to record video: $e');
+    }
+  }
+
+  Future<void> _captureImage() async {
+    if (_isUploading || _isSubmitting) return;
+
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (file == null || !mounted) return;
+
+      await _uploadMedia(file, isVideo: false);
+    } catch (e) {
+      if (!mounted) return;
+      AppAlert.showError(context, 'Failed to capture photo: $e');
+    }
   }
 
   Future<void> _pickImage() async {

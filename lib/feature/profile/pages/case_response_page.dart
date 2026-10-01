@@ -136,8 +136,29 @@ class _CaseResponsePageState extends State<CaseResponsePage> {
                 Space.vertical(12),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.videocam_rounded, color: kPrimaryColor),
+                  title: const Text('Record video'),
+                  subtitle: const Text('Directly record a video using camera'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _recordVideoFromCamera();
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.camera_alt_rounded, color: kPrimaryColor),
+                  title: const Text('Take photo'),
+                  subtitle: const Text('Directly take a photo using camera'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    await _captureImageFromCamera();
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.image_outlined),
                   title: const Text('Image from gallery'),
+                  subtitle: const Text('Choose an image from gallery'),
                   onTap: () async {
                     Navigator.pop(context);
                     await _pickImageFromGallery();
@@ -145,28 +166,64 @@ class _CaseResponsePageState extends State<CaseResponsePage> {
                 ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.videocam_outlined),
+                  leading: const Icon(Icons.video_library_outlined),
                   title: const Text('Video from gallery'),
+                  subtitle: const Text('Choose a video from gallery'),
                   onTap: () async {
                     Navigator.pop(context);
                     await _pickVideoFromGallery();
                   },
                 ),
-                // ListTile(
-                //   contentPadding: EdgeInsets.zero,
-                //   leading: const Icon(Icons.folder_open_outlined),
-                //   title: const Text('Document from device'),
-                //   onTap: () async {
-                //     Navigator.pop(context);
-                //     await _pickDocumentFromFiles();
-                //   },
-                // ),
               ],
             ),
           ),
         );
       },
     );
+  }
+
+  Future<void> _recordVideoFromCamera() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickVideo(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+      if (file == null || !mounted) return;
+      final fileBytes = await file.readAsBytes();
+
+      await _uploadSelectedFile(
+        filePath: file.path,
+        fileName: file.name,
+        isImage: false,
+        fileBytes: fileBytes,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppAlert.showError(context, 'Failed to record video: $e');
+    }
+  }
+
+  Future<void> _captureImageFromCamera() async {
+    try {
+      final picker = ImagePicker();
+      final file = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+      );
+      if (file == null || !mounted) return;
+      final fileBytes = await file.readAsBytes();
+
+      await _uploadSelectedFile(
+        filePath: file.path,
+        fileName: file.name,
+        isImage: true,
+        fileBytes: fileBytes,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      AppAlert.showError(context, 'Failed to take photo: $e');
+    }
   }
 
   Future<void> _pickImageFromGallery() async {

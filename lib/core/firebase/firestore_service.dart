@@ -835,6 +835,16 @@ class FirestoreDataService {
     data['case_id'] = caseId;
     data['case_created_at'] = DateTime.now().toUtc().toIso8601String();
 
+    int hoursToAdd = 24;
+    final availId = data['case_available_status_id'];
+    if (availId == 10) {
+      hoursToAdd = 48;
+    } else if (availId == 11) {
+      hoursToAdd = 72;
+    }
+    final pollEndDate = DateTime.now().toUtc().add(Duration(hours: hoursToAdd)).toIso8601String();
+    data['poll_end_date'] = pollEndDate;
+
     final hasTaggedUser = data['tag_defendent_user_id'] != null;
     final hasSmsInvite = data['invited_phone_number'] != null;
     final isTagged = hasTaggedUser || hasSmsInvite;
@@ -965,6 +975,7 @@ class FirestoreDataService {
           'owner_count': 0,
           'defendant_count': 0,
           'total_count': 0,
+          'poll_end_date': pollEndDate,
         },
         'repost_count': 0,
         'reposts': [],
@@ -1127,6 +1138,16 @@ class FirestoreDataService {
       'is_active': 'Y',
     };
 
+    int hoursToAdd = 24;
+    final availId = data['case_available_status_id'];
+    if (availId == 10) {
+      hoursToAdd = 48;
+    } else if (availId == 11) {
+      hoursToAdd = 72;
+    }
+    final pollEndDate = (data['poll_end_date'] as String?) ??
+        DateTime.now().toUtc().add(Duration(hours: hoursToAdd)).toIso8601String();
+
     final postData = {
       'post_id': caseId,
       'case_id': caseId,
@@ -1155,6 +1176,7 @@ class FirestoreDataService {
         'owner_count': 0,
         'defendant_count': 0,
         'total_count': 0,
+        'poll_end_date': pollEndDate,
       },
       'repost_count': 0,
       'reposts': [],
