@@ -16,7 +16,6 @@ import 'package:cctv_app/feature/forgotPassword/pages/forgot_pasword.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'dart:developer';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/gestures.dart';
@@ -44,16 +43,9 @@ class _SigninViewState extends State<SigninView> {
   bool obscurePassword = true;
   bool isSubmitting = false;
 
-  int get _effectiveRoleIndex {
-    if (widget.isAdminTab != null) {
-      return widget.isAdminTab! ? 0 : 2;
-    }
-    return widget.selectedRoleIndex;
-  }
-
   DashboardType _dashboardTypeFromRoleString(String role) {
     final normalizedRole = role.trim().toLowerCase();
-    if (normalizedRole == 'super admin') {
+    if (normalizedRole == 'super admin' || normalizedRole == 'superadmin') {
       return DashboardType.superAdmin;
     }
     if (normalizedRole == 'admin') {
@@ -65,7 +57,7 @@ class _SigninViewState extends State<SigninView> {
 
   int _roleIdFromRoleString(String role) {
     final normalizedRole = role.trim().toLowerCase();
-    if (normalizedRole == 'super admin') return 3;
+    if (normalizedRole == 'super admin' || normalizedRole == 'superadmin') return 3;
     if (normalizedRole == 'admin') return 2;
     if (normalizedRole == 'ad') return 3;
     return 1;
@@ -78,20 +70,6 @@ class _SigninViewState extends State<SigninView> {
       DashboardType.user => const UserBottomNavBar(),
       DashboardType.ad => const AdBottomNavBar(),
     };
-  }
-
-  bool _matchesSelectedLoginType(DashboardType dashboardType) {
-    final roleIndex = _effectiveRoleIndex;
-    if (roleIndex == 0) {
-      // Super Admin tab selected
-      return dashboardType == DashboardType.superAdmin || dashboardType == DashboardType.admin;
-    }
-    if (roleIndex == 1) {
-      // Admin tab selected
-      return dashboardType == DashboardType.admin || dashboardType == DashboardType.superAdmin;
-    }
-    // User tab selected
-    return dashboardType == DashboardType.user;
   }
 
   Future<void> _submit() async {
@@ -124,7 +102,7 @@ class _SigninViewState extends State<SigninView> {
         throw Exception('Login succeeded but auth data is missing');
       }
 
-      if (!user.emailVerified) {
+      if (user is User && !user.emailVerified) {
         await FirebaseAuth.instance.currentUser?.reload();
         final isEmailVerified = FirebaseAuth.instance.currentUser?.emailVerified ?? false;
         
@@ -135,11 +113,6 @@ class _SigninViewState extends State<SigninView> {
       }
 
       final dashboardType = _dashboardTypeFromRoleString(role);
-      if (!_matchesSelectedLoginType(dashboardType)) {
-        throw Exception(
-          'Please select the correct login tab for your account role ($role)',
-        );
-      }
 
       // Read the full user document so we get the real user_id integer, name, and avatar
       int firestoreUserId = user.uid.hashCode; // fallback
