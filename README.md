@@ -1,7 +1,13 @@
 # 🛡️ CivicWatch — Community Surveillance, Incident Verification & Public Opinion Network
 
 <p align="center">
-  <img src="assets/civicwatch_logo.png" alt="CivicWatch Logo" width="160" style="border-radius: 24px; box-shadow: 0 8px 32px rgba(59, 130, 246, 0.35);" />
+  <p align="center">
+  <img src="assets/civicwatch_logo.png" alt="CommCTV App Store Production Logo" width="140" style="border-radius: 20px; box-shadow: 0 8px 24px rgba(59, 130, 246, 0.25); margin: 0 12px;" />
+  <img src="assets/branding/civicwatch_platform_logo.jpg" alt="CivicWatch Open Platform Emblem" width="140" style="border-radius: 20px; box-shadow: 0 8px 24px rgba(59, 130, 246, 0.25); margin: 0 12px;" />
+</p>
+<p align="center">
+  <em>Left: App Store Production Mark (CommCTV) &bull; Right: CivicWatch Architectural Platform Identity</em>
+</p>
 </p>
 
 <p align="center">
