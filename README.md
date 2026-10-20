@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://apps.apple.com/us/app/commctv-cctv/id6737039534">
+  <a href="https://apps.apple.com/us/app/commctv-cctv/id6771093357">
     <img src="https://img.shields.io/badge/Apple_App_Store-Production_Live-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Apple App Store" />
   </a>
   <a href="https://play.google.com/store/apps/details?id=com.urbansyncinn.commctv">
@@ -27,7 +27,7 @@
 > **Production Application Verification:**
 > 
 > The core civic transparency and incident resolution engine in this repository is actively deployed in production worldwide across both major mobile application marketplaces:
-> - 🍏 **iOS App Store (Live):** [CommCTV (CCTV) on Apple App Store](https://apps.apple.com/us/app/commctv-cctv/id6737039534)
+> - 🍏 **iOS App Store (Live):** [CommCTV (CCTV) on Apple App Store](https://apps.apple.com/us/app/commctv-cctv/id6771093357)
 > - 🤖 **Google Play Store (Live):** [CommCTV (`com.urbansyncinn.commctv`) on Google Play](https://play.google.com/store/apps/details?id=com.urbansyncinn.commctv)
 > 
 > *Client & Publisher:* **UrbanSync Innovations LLC**  
